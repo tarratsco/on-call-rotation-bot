@@ -1,0 +1,25 @@
+{
+  "name": "on-call-rotation-bot",
+  "version": "0.1.0",
+  "description": "Slack bot for fair weekly on-call rotations",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "NODE_ENV=development node src/index.js",
+    "test": "node --test src/**/*.test.js",
+    "seed:test-users": "node scripts/seed-test-users.js",
+    "cleanup:test-users": "node scripts/cleanup-test-users.js",
+    "lint": "echo 'No linter configured yet'"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "dotenv": "^16.4.7",
+    "node-cron": "^3.0.3",
+    "@slack/bolt": "^4.2.1",
+    "uuid": "^11.1.0"
+  }
+}

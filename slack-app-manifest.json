@@ -1,0 +1,100 @@
+{
+  "display_information": {
+    "name": "On-Call Rotation Bot",
+    "description": "Weekly on-call rotation with fair round-robin assignment",
+    "background_color": "#1D4ED8"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "On-Call Rotation Bot",
+      "always_online": false
+    },
+    "slash_commands": [
+      {
+        "command": "/oncall",
+        "url": "https://example.com/slack/commands",
+        "description": "Show who is on-call this week",
+        "usage_hint": "",
+        "should_escape": false
+      },
+      {
+        "command": "/oncall-schedule",
+        "url": "https://example.com/slack/commands",
+        "description": "Show upcoming on-call rotation",
+        "usage_hint": "[weeks]",
+        "should_escape": false
+      },
+      {
+        "command": "/oncall-add",
+        "url": "https://example.com/slack/commands",
+        "description": "Add participant to on-call rotation (admin)",
+        "usage_hint": "@user",
+        "should_escape": false
+      },
+      {
+        "command": "/oncall-remove",
+        "url": "https://example.com/slack/commands",
+        "description": "Remove participant from on-call rotation (admin)",
+        "usage_hint": "@user",
+        "should_escape": false
+      },
+      {
+        "command": "/oncall-list",
+        "url": "https://example.com/slack/commands",
+        "description": "List participants and queue order",
+        "usage_hint": "",
+        "should_escape": false
+      },
+      {
+        "command": "/oncall-swap",
+        "url": "https://example.com/slack/commands",
+        "description": "Request or manage on-call swaps",
+        "usage_hint": "@user | @user1 @user2 [YYYY-MM-DD]",
+        "should_escape": false
+      },
+      {
+        "command": "/oncall-skip",
+        "url": "https://example.com/slack/commands",
+        "description": "Mark unavailable for a week",
+        "usage_hint": "[@user] [YYYY-MM-DD]",
+        "should_escape": false
+      },
+      {
+        "command": "/oncall-override",
+        "url": "https://example.com/slack/commands",
+        "description": "Force-assign on-call for a week (admin)",
+        "usage_hint": "@user [YYYY-MM-DD]",
+        "should_escape": false
+      },
+      {
+        "command": "/oncall-config",
+        "url": "https://example.com/slack/commands",
+        "description": "View or update bot configuration (admin)",
+        "usage_hint": "channel #name | schedule Monday 09:00 America/New_York",
+        "should_escape": false
+      },
+      {
+        "command": "/oncall-help",
+        "url": "https://example.com/slack/commands",
+        "description": "Show all bot commands",
+        "usage_hint": "",
+        "should_escape": false
+      }
+    ]
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "chat:write",
+        "commands",
+        "users:read",
+        "im:write"
+      ]
+    }
+  },
+  "settings": {
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": true,
+    "token_rotation_enabled": false
+  }
+}
