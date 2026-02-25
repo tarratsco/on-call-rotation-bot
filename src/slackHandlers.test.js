@@ -366,7 +366,7 @@ test('/oncall-swap decline resolves pending request', async () => {
   assert.deepEqual(resolved, [{ id: 'P2', status: 'declined' }]);
 });
 
-test('/oncall-config requires admin and validates channel input', async () => {
+test('/oncall-set requires admin and validates channel input', async () => {
   const app = createFakeApp();
   const setCalls = [];
   const rotationService = createRotationServiceStub({
@@ -375,16 +375,16 @@ test('/oncall-config requires admin and validates channel input', async () => {
   });
   createHandlers({ app, rotationService, logger: console });
 
-  const denied = await invoke(app, '/oncall-config', { text: 'channel #ops', userId: 'UUSER' });
+  const denied = await invoke(app, '/oncall-set', { text: 'channel #ops', userId: 'UUSER' });
   assert.match(denied.text, /Admin access required/);
 
   rotationService.isAdmin = () => true;
-  const bad = await invoke(app, '/oncall-config', { text: 'channel invalid-channel', userId: 'UADMIN' });
-  assert.match(bad.text, /Usage: \/oncall-config channel/);
+  const bad = await invoke(app, '/oncall-set', { text: 'channel invalid-channel', userId: 'UADMIN' });
+  assert.match(bad.text, /Usage: \/oncall-set channel/);
   assert.equal(setCalls.length, 0);
 });
 
-test('/oncall-config updates channel and schedule values', async () => {
+test('/oncall-set updates channel and schedule values', async () => {
   const app = createFakeApp();
   const setCalls = [];
   const rotationService = createRotationServiceStub({
@@ -393,13 +393,13 @@ test('/oncall-config updates channel and schedule values', async () => {
   });
   createHandlers({ app, rotationService, logger: console });
 
-  const channelResponse = await invoke(app, '/oncall-config', {
+  const channelResponse = await invoke(app, '/oncall-set', {
     text: 'channel <#COPS|ops>',
     userId: 'UADMIN',
   });
   assert.match(channelResponse.text, /Reminder channel set/);
 
-  const scheduleResponse = await invoke(app, '/oncall-config', {
+  const scheduleResponse = await invoke(app, '/oncall-set', {
     text: 'schedule Monday 09:00 America/New_York',
     userId: 'UADMIN',
   });
@@ -412,7 +412,7 @@ test('/oncall-config updates channel and schedule values', async () => {
   ]);
 });
 
-test('/oncall-config channel accepts #channel-name in current channel', async () => {
+test('/oncall-set channel accepts #channel-name in current channel', async () => {
   const app = createFakeApp();
   const setCalls = [];
   const rotationService = createRotationServiceStub({
@@ -421,7 +421,7 @@ test('/oncall-config channel accepts #channel-name in current channel', async ()
   });
   createHandlers({ app, rotationService, logger: console });
 
-  const response = await invoke(app, '/oncall-config', {
+  const response = await invoke(app, '/oncall-set', {
     text: 'channel #on-call-reminders',
     userId: 'UADMIN',
     channelId: 'C12345',
@@ -432,7 +432,7 @@ test('/oncall-config channel accepts #channel-name in current channel', async ()
   assert.deepEqual(setCalls, [{ key: 'reminder_channel', value: 'C12345' }]);
 });
 
-test('/oncall-config channel rejects #channel-name when not current channel', async () => {
+test('/oncall-set channel rejects #channel-name when not current channel', async () => {
   const app = createFakeApp();
   const setCalls = [];
   const rotationService = createRotationServiceStub({
@@ -441,18 +441,18 @@ test('/oncall-config channel rejects #channel-name when not current channel', as
   });
   createHandlers({ app, rotationService, logger: console });
 
-  const response = await invoke(app, '/oncall-config', {
+  const response = await invoke(app, '/oncall-set', {
     text: 'channel #on-call-reminders',
     userId: 'UADMIN',
     channelId: 'C12345',
     channelName: 'other-channel',
   });
 
-  assert.match(response.text, /Usage: \/oncall-config channel #channel or CHANNEL_ID/);
+  assert.match(response.text, /Usage: \/oncall-set channel #channel or CHANNEL_ID/);
   assert.equal(setCalls.length, 0);
 });
 
-test('/oncall-config without args includes current config and subcommand help', async () => {
+test('/oncall-admin help includes current config and admin commands', async () => {
   const app = createFakeApp();
   const rotationService = createRotationServiceStub({
     isAdmin: () => true,
@@ -460,21 +460,21 @@ test('/oncall-config without args includes current config and subcommand help', 
   });
   createHandlers({ app, rotationService, logger: console });
 
-  const response = await invoke(app, '/oncall-config', {
-    text: '',
+  const response = await invoke(app, '/oncall-admin', {
+    text: 'help',
     userId: 'UADMIN',
   });
 
   assert.match(response.text, /\*Current config\*/);
   assert.match(response.text, /reminder_channel: <#COPS>/);
-  assert.match(response.text, /\*Available subcommands\*/);
-  assert.match(response.text, /\/oncall-config rotation @user1 @user2/);
-  assert.match(response.text, /\/oncall-config clear-schedule/);
-  assert.match(response.text, /\/oncall-config clear-queue/);
-  assert.match(response.text, /\/oncall-config clear-all/);
+  assert.match(response.text, /\*Admin commands\*/);
+  assert.match(response.text, /\/oncall-set rotation @user1 @user2/);
+  assert.match(response.text, /\/oncall-reset schedule/);
+  assert.match(response.text, /\/oncall-reset queue/);
+  assert.match(response.text, /\/oncall-reset all confirm/);
 });
 
-test('/oncall-config rotation updates queue order', async () => {
+test('/oncall-set rotation updates queue order', async () => {
   const app = createFakeApp();
   const calls = [];
   const rotationService = createRotationServiceStub({
@@ -492,7 +492,7 @@ test('/oncall-config rotation updates queue order', async () => {
   });
   createHandlers({ app, rotationService, logger: console });
 
-  const response = await invoke(app, '/oncall-config', {
+  const response = await invoke(app, '/oncall-set', {
     text: 'rotation <@U2> <@U1>',
     userId: 'UADMIN',
   });
@@ -503,7 +503,30 @@ test('/oncall-config rotation updates queue order', async () => {
   assert.match(response.text, /2\. <@U1>/);
 });
 
-test('/oncall-config rotation returns validation error from service', async () => {
+test('/oncall-set rotation apply-now clears schedule state', async () => {
+  const app = createFakeApp();
+  const rotationService = createRotationServiceStub({
+    isAdmin: () => true,
+    setQueueOrderBySlackIds: () => ({ updated: true, members: [{ slack_user_id: 'U1' }] }),
+    clearScheduleState: () => ({ cleared: true }),
+  });
+  let cleared = 0;
+  rotationService.clearScheduleState = () => {
+    cleared += 1;
+    return { cleared: true };
+  };
+  createHandlers({ app, rotationService, logger: console });
+
+  const response = await invoke(app, '/oncall-set', {
+    text: 'rotation <@U1> apply-now',
+    userId: 'UADMIN',
+  });
+
+  assert.equal(cleared, 1);
+  assert.match(response.text, /applied now/);
+});
+
+test('/oncall-set rotation returns validation error from service', async () => {
   const app = createFakeApp();
   const rotationService = createRotationServiceStub({
     isAdmin: () => true,
@@ -511,7 +534,7 @@ test('/oncall-config rotation returns validation error from service', async () =
   });
   createHandlers({ app, rotationService, logger: console });
 
-  const response = await invoke(app, '/oncall-config', {
+  const response = await invoke(app, '/oncall-set', {
     text: 'rotation <@U1>',
     userId: 'UADMIN',
   });
@@ -519,7 +542,7 @@ test('/oncall-config rotation returns validation error from service', async () =
   assert.match(response.text, /Include each active participant exactly once/);
 });
 
-test('/oncall-config clear-schedule keeps users and clears schedule state', async () => {
+test('/oncall-reset schedule keeps users and clears schedule state', async () => {
   const app = createFakeApp();
   const rotationService = createRotationServiceStub({
     isAdmin: () => true,
@@ -527,8 +550,8 @@ test('/oncall-config clear-schedule keeps users and clears schedule state', asyn
   });
   createHandlers({ app, rotationService, logger: console });
 
-  const response = await invoke(app, '/oncall-config', {
-    text: 'clear-schedule',
+  const response = await invoke(app, '/oncall-reset', {
+    text: 'schedule',
     userId: 'UADMIN',
   });
 
@@ -536,7 +559,7 @@ test('/oncall-config clear-schedule keeps users and clears schedule state', asyn
   assert.match(response.text, /Active participants were kept/);
 });
 
-test('/oncall-config clear-queue keeps users and resets queue/schedule state', async () => {
+test('/oncall-reset queue keeps users and resets queue\/schedule state', async () => {
   const app = createFakeApp();
   const rotationService = createRotationServiceStub({
     isAdmin: () => true,
@@ -544,8 +567,8 @@ test('/oncall-config clear-queue keeps users and resets queue/schedule state', a
   });
   createHandlers({ app, rotationService, logger: console });
 
-  const response = await invoke(app, '/oncall-config', {
-    text: 'clear-queue',
+  const response = await invoke(app, '/oncall-reset', {
+    text: 'queue',
     userId: 'UADMIN',
   });
 
@@ -554,7 +577,23 @@ test('/oncall-config clear-queue keeps users and resets queue/schedule state', a
   assert.match(response.text, /cleared rotation history\/overrides\/pending swaps\/approvals/);
 });
 
-test('/oncall-config clear-all deactivates users and clears schedule state', async () => {
+test('/oncall-reset all requires explicit confirm', async () => {
+  const app = createFakeApp();
+  const rotationService = createRotationServiceStub({
+    isAdmin: () => true,
+  });
+  createHandlers({ app, rotationService, logger: console });
+
+  const response = await invoke(app, '/oncall-reset', {
+    text: 'all',
+    userId: 'UADMIN',
+  });
+
+  assert.match(response.text, /destructive/);
+  assert.match(response.text, /\/oncall-reset all confirm/);
+});
+
+test('/oncall-reset all confirm deactivates users and clears schedule state', async () => {
   const app = createFakeApp();
   const rotationService = createRotationServiceStub({
     isAdmin: () => true,
@@ -562,8 +601,8 @@ test('/oncall-config clear-all deactivates users and clears schedule state', asy
   });
   createHandlers({ app, rotationService, logger: console });
 
-  const response = await invoke(app, '/oncall-config', {
-    text: 'clear-all',
+  const response = await invoke(app, '/oncall-reset', {
+    text: 'all confirm',
     userId: 'UADMIN',
   });
 

@@ -244,6 +244,37 @@ function createHandlers({ app, rotationService, logger }) {
     return false;
   }
 
+  async function showAdminConfigSummary({ respond, client, command }) {
+    const config = rotationService.getConfig();
+    const configText = Object.entries(config)
+      .map(([key, value]) => {
+        if (key === 'reminder_channel' && value) {
+          return `${key}: <#${value}>`;
+        }
+        return `${key}: ${value}`;
+      })
+      .join('\n') || 'No config set.';
+
+    await sendEphemeral({
+      respond,
+      client,
+      command,
+      logger,
+      text: [
+        '*Current config*',
+        configText,
+        '',
+        '*Admin commands*',
+        '- `/oncall-set channel #channel`',
+        '- `/oncall-set schedule Monday 09:00 America/New_York`',
+        '- `/oncall-set rotation @user1 @user2 ... [apply-now]`',
+        '- `/oncall-reset schedule`',
+        '- `/oncall-reset queue`',
+        '- `/oncall-reset all confirm`',
+      ].join('\n'),
+    });
+  }
+
   app.command('/oncall-help', async ({ ack, command, respond, client }) => {
     await ack();
     await sendEphemeral({
@@ -263,11 +294,9 @@ function createHandlers({ app, rotationService, logger }) {
         '`/oncall-swap accept @user [week]` — accept a swap request',
         '`/oncall-skip [week]` or `/oncall-skip @user [week]` — mark unavailable',
         '`/oncall-override @user [week]` — force assign (admin)',
-        '`/oncall-config ...` — view/update config (admin)',
-        '`/oncall-config rotation @user1 @user2 ...` — set queue order (admin)',
-        '`/oncall-config clear-schedule` — clear schedule state, keep users (admin)',
-        '`/oncall-config clear-queue` — reset queue order + schedule state, keep users (admin)',
-        '`/oncall-config clear-all` — deactivate all users + clear schedule state (admin)',
+        '`/oncall-admin help` — show admin config/reset help (admin)',
+        '`/oncall-set channel|schedule|rotation ...` — set config/rotation (admin)',
+        '`/oncall-reset schedule|queue|all confirm` — reset state (admin)',
       ].join('\n'),
     });
   });
@@ -687,7 +716,28 @@ function createHandlers({ app, rotationService, logger }) {
     });
   });
 
-  app.command('/oncall-config', async ({ ack, command, respond, client }) => {
+  app.command('/oncall-admin', async ({ ack, command, respond, client }) => {
+    await ack();
+    if (!(await requireAdmin({ userId: command.user_id, respond, client, command }))) {
+      return;
+    }
+
+    const text = (command.text || '').trim();
+    if (!text || /^help$/i.test(text)) {
+      await showAdminConfigSummary({ respond, client, command });
+      return;
+    }
+
+    await sendEphemeral({
+      respond,
+      client,
+      command,
+      logger,
+      text: 'Usage: /oncall-admin help',
+    });
+  });
+
+  app.command('/oncall-set', async ({ ack, command, respond, client }) => {
     await ack();
     if (!(await requireAdmin({ userId: command.user_id, respond, client, command }))) {
       return;
@@ -695,41 +745,26 @@ function createHandlers({ app, rotationService, logger }) {
 
     const text = (command.text || '').trim();
     if (!text) {
-      const config = rotationService.getConfig();
-      const configText = Object.entries(config)
-        .map(([key, value]) => {
-          if (key === 'reminder_channel' && value) {
-            return `${key}: <#${value}>`;
-          }
-          return `${key}: ${value}`;
-        })
-        .join('\n') || 'No config set.';
       await sendEphemeral({
         respond,
         client,
         command,
         logger,
-        text: [
-          '*Current config*',
-          configText,
-          '',
-          '*Available subcommands*',
-          '- `/oncall-config channel #channel`',
-          '- `/oncall-config schedule Monday 09:00 America/New_York`',
-          '- `/oncall-config rotation @user1 @user2 ...`',
-          '- `/oncall-config clear-schedule`',
-          '- `/oncall-config clear-queue`',
-          '- `/oncall-config clear-all`',
-        ].join('\n'),
+        text: 'Usage: /oncall-set channel #channel OR /oncall-set schedule Monday 09:00 America/New_York OR /oncall-set rotation @user1 @user2 ... [apply-now]',
       });
       return;
     }
 
     if (text.startsWith('rotation ')) {
-      const raw = text.replace(/^rotation\s+/i, '').trim();
+      let raw = text.replace(/^rotation\s+/i, '').trim();
+      const applyNow = /\s+apply-now$/i.test(raw);
+      if (applyNow) {
+        raw = raw.replace(/\s+apply-now$/i, '').trim();
+      }
+
       const userIds = await parseSlackUserIds(raw, client);
       if (!userIds.length) {
-        await sendEphemeral({ respond, client, command, logger, text: 'Usage: /oncall-config rotation @user1 @user2 ... (include each active participant exactly once)' });
+        await sendEphemeral({ respond, client, command, logger, text: 'Usage: /oncall-set rotation @user1 @user2 ... [apply-now] (include each active participant exactly once)' });
         return;
       }
 
@@ -739,49 +774,19 @@ function createHandlers({ app, rotationService, logger }) {
         return;
       }
 
+      if (applyNow) {
+        rotationService.clearScheduleState();
+      }
+
       const lines = result.members.map((member, index) => `${index + 1}. ${formatMember(member)}`);
       await sendEphemeral({
         respond,
         client,
         command,
         logger,
-        text: `Rotation order updated:\n${lines.join('\n')}`,
-      });
-      return;
-    }
-
-    if (text === 'clear-schedule') {
-      rotationService.clearScheduleState();
-      await sendEphemeral({
-        respond,
-        client,
-        command,
-        logger,
-        text: 'Schedule state cleared. Active participants were kept. Cleared rotation history, overrides, pending swaps, and pending approvals.',
-      });
-      return;
-    }
-
-    if (text === 'clear-queue') {
-      const result = rotationService.clearQueueKeepUsers();
-      await sendEphemeral({
-        respond,
-        client,
-        command,
-        logger,
-        text: `Queue reset complete. Kept ${result.activeMembers} active participant(s), reset queue order, and cleared rotation history/overrides/pending swaps/approvals.`,
-      });
-      return;
-    }
-
-    if (text === 'clear-all') {
-      const result = rotationService.clearAllData();
-      await sendEphemeral({
-        respond,
-        client,
-        command,
-        logger,
-        text: `Full reset complete. Deactivated ${result.deactivatedMembers} active participant(s) and cleared rotation history/overrides/pending swaps/approvals.`,
+        text: applyNow
+          ? `Rotation order updated and applied now (future schedule state cleared):\n${lines.join('\n')}`
+          : `Rotation order updated:\n${lines.join('\n')}`,
       });
       return;
     }
@@ -795,7 +800,7 @@ function createHandlers({ app, rotationService, logger }) {
           client,
           command,
           logger,
-          text: 'Usage: /oncall-config channel #channel or CHANNEL_ID. For #channel-name input, run the command inside that channel.',
+          text: 'Usage: /oncall-set channel #channel or CHANNEL_ID. For #channel-name input, run the command inside that channel.',
         });
         return;
       }
@@ -825,7 +830,81 @@ function createHandlers({ app, rotationService, logger }) {
       client,
       command,
       logger,
-      text: 'Usage: /oncall-config channel #channel OR /oncall-config schedule Monday 09:00 America/New_York OR /oncall-config rotation @user1 @user2 ... OR /oncall-config clear-schedule OR /oncall-config clear-queue OR /oncall-config clear-all',
+      text: 'Usage: /oncall-set channel #channel OR /oncall-set schedule Monday 09:00 America/New_York OR /oncall-set rotation @user1 @user2 ... [apply-now]',
+    });
+  });
+
+  app.command('/oncall-reset', async ({ ack, command, respond, client }) => {
+    await ack();
+    if (!(await requireAdmin({ userId: command.user_id, respond, client, command }))) {
+      return;
+    }
+
+    const text = (command.text || '').trim().toLowerCase();
+    if (!text) {
+      await sendEphemeral({
+        respond,
+        client,
+        command,
+        logger,
+        text: 'Usage: /oncall-reset schedule OR /oncall-reset queue OR /oncall-reset all confirm',
+      });
+      return;
+    }
+
+    if (text === 'schedule') {
+      rotationService.clearScheduleState();
+      await sendEphemeral({
+        respond,
+        client,
+        command,
+        logger,
+        text: 'Schedule state cleared. Active participants were kept. Cleared rotation history, overrides, pending swaps, and pending approvals.',
+      });
+      return;
+    }
+
+    if (text === 'queue') {
+      const result = rotationService.clearQueueKeepUsers();
+      await sendEphemeral({
+        respond,
+        client,
+        command,
+        logger,
+        text: `Queue reset complete. Kept ${result.activeMembers} active participant(s), reset queue order, and cleared rotation history/overrides/pending swaps/approvals.`,
+      });
+      return;
+    }
+
+    if (text === 'all') {
+      await sendEphemeral({
+        respond,
+        client,
+        command,
+        logger,
+        text: 'This is destructive. Confirm with: /oncall-reset all confirm',
+      });
+      return;
+    }
+
+    if (text === 'all confirm') {
+      const result = rotationService.clearAllData();
+      await sendEphemeral({
+        respond,
+        client,
+        command,
+        logger,
+        text: `Full reset complete. Deactivated ${result.deactivatedMembers} active participant(s) and cleared rotation history/overrides/pending swaps/approvals.`,
+      });
+      return;
+    }
+
+    await sendEphemeral({
+      respond,
+      client,
+      command,
+      logger,
+      text: 'Usage: /oncall-reset schedule OR /oncall-reset queue OR /oncall-reset all confirm',
     });
   });
 }
