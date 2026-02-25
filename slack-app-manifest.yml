@@ -47,10 +47,20 @@ features:
       description: Force-assign on-call for a week (admin)
       usage_hint: "@user [YYYY-MM-DD]"
       should_escape: false
-    - command: /oncall-config
+    - command: /oncall-set
       url: https://example.com/slack/commands
-      description: View or update bot configuration (admin)
-      usage_hint: "channel #name | schedule Monday 09:00 America/New_York"
+      description: Set on-call configuration (admin)
+      usage_hint: "channel #name | schedule Monday 09:00 America/New_York | rotation @u1 @u2 [apply-now]"
+      should_escape: false
+    - command: /oncall-reset
+      url: https://example.com/slack/commands
+      description: Reset on-call schedule/queue state (admin)
+      usage_hint: "schedule | queue | all confirm"
+      should_escape: false
+    - command: /oncall-admin
+      url: https://example.com/slack/commands
+      description: Show admin config and reset help
+      usage_hint: "help"
       should_escape: false
     - command: /oncall-help
       url: https://example.com/slack/commands
