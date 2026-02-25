@@ -46,21 +46,21 @@ Run in Slack:
 
 Run in Slack:
 
-7. `/oncall-config`
+7. `/oncall-admin help`
    - Expect current config values and available subcommands
    - Expect `reminder_channel` to render as a channel mention (`<#...>`)
-8. `/oncall-config channel #social`
+8. `/oncall-set channel #social`
    - Run this command in `#social`
    - Expect reminder channel confirmation
-9. `/oncall-config schedule Monday 09:00 America/New_York`
+9. `/oncall-set schedule Monday 09:00 America/New_York`
    - Expect schedule update confirmation
-10. `/oncall-config clear-schedule`
+10. `/oncall-reset schedule`
    - Expect schedule-state reset confirmation and active users kept
-11. `/oncall-config rotation @user1 @user2 @user3`
+11. `/oncall-set rotation @user1 @user2 @user3`
    - Expect queue reorder confirmation
-12. `/oncall-config clear-queue`
+12. `/oncall-reset queue`
    - Expect queue reset + schedule-state reset confirmation and active users kept
-13. `/oncall-config clear-all`
+13. `/oncall-reset all confirm`
    - Expect full reset confirmation with active users deactivated
 14. `/oncall-help`
    - Expect command summary list
@@ -75,7 +75,7 @@ Run in Slack:
    - Expect clamp to max weeks (12)
 17. `/oncall-skip @someoneelse 2026-03-02`
    - As non-admin, expect rejection
-18. `/oncall-config channel #different-channel`
+18. `/oncall-set channel #different-channel`
    - If run outside that channel, expect usage guidance
 
 ## 6) Cleanup temporary participants

@@ -60,13 +60,13 @@ The manifest preconfigures:
    ```
 5. In Slack, run:
    - `/oncall-help`
-   - `/oncall-config` (shows current config + subcommand help)
-   - `/oncall-config channel #your-channel`
-   - `/oncall-config schedule Monday 09:00 America/New_York`
-   - `/oncall-config rotation @user1 @user2 @user3`
-   - `/oncall-config clear-schedule`
-   - `/oncall-config clear-queue`
-   - `/oncall-config clear-all`
+   - `/oncall-admin help`
+   - `/oncall-set channel #your-channel`
+   - `/oncall-set schedule Monday 09:00 America/New_York`
+   - `/oncall-set rotation @user1 @user2 @user3`
+   - `/oncall-reset schedule`
+   - `/oncall-reset queue`
+   - `/oncall-reset all confirm`
    - `/oncall-add @user1 @user2 @user3`
 
 ## Testing
@@ -122,36 +122,38 @@ Slash commands are already defined in the manifest file. If you change command n
 - `/oncall-swap`
 - `/oncall-skip`
 - `/oncall-override`
-- `/oncall-config`
+- `/oncall-set`
+- `/oncall-reset`
+- `/oncall-admin`
 - `/oncall-help`
 
-`/oncall-config` subcommands (admin):
+Admin configuration commands:
 
-- `/oncall-config` — show current config + available subcommands
-- `/oncall-config channel #channel` — set reminder channel
-- `/oncall-config schedule Monday 09:00 America/New_York` — set reminder schedule
-- `/oncall-config rotation @user1 @user2 ...` — manually set queue order
-- `/oncall-config clear-schedule` — clear schedule state only (keep active users)
-- `/oncall-config clear-queue` — reset queue order + clear schedule state (keep active users)
-- `/oncall-config clear-all` — deactivate all active users + clear schedule state
+- `/oncall-admin help` — show current config + admin command help
+- `/oncall-set channel #channel` — set reminder channel
+- `/oncall-set schedule Monday 09:00 America/New_York` — set reminder schedule
+- `/oncall-set rotation @user1 @user2 ... [apply-now]` — set queue order (optionally apply immediately)
+- `/oncall-reset schedule` — clear schedule state only (keep active users)
+- `/oncall-reset queue` — reset queue order + clear schedule state (keep active users)
+- `/oncall-reset all confirm` — deactivate all active users + clear schedule state
 
 To manually set starting queue order, use:
 
-- `/oncall-config rotation @user1 @user2 @user3 ...`
+- `/oncall-set rotation @user1 @user2 @user3 ...`
 
 Include each active participant exactly once in the desired order.
 
 To reset schedule state while keeping users, use:
 
-- `/oncall-config clear-schedule`
+- `/oncall-reset schedule`
 
 To reset queue order + schedule state while keeping users, use:
 
-- `/oncall-config clear-queue`
+- `/oncall-reset queue`
 
 To fully reset all active participants and schedule state, use:
 
-- `/oncall-config clear-all`
+- `/oncall-reset all confirm`
 
 `clear-schedule` and `clear-queue` keep active participants. `clear-all` deactivates all active participants. All three clear rotation history, overrides, and pending swaps/approvals.
 
@@ -162,13 +164,13 @@ To fully reset all active participants and schedule state, use:
 
 Channel input notes:
 
-- `reminder_channel` is shown as a Slack channel mention (`<#CHANNEL_ID>`) in `/oncall-config` output.
-- If you pass `/oncall-config channel #channel-name`, run it inside that same channel so the bot can resolve the ID.
+- `reminder_channel` is shown as a Slack channel mention (`<#CHANNEL_ID>`) in `/oncall-admin help` output.
+- If you pass `/oncall-set channel #channel-name`, run it inside that same channel so the bot can resolve the ID.
 
 ## Notes
 
 - Participants are manually managed (no auto-sync from channel members).
 - Queue order is preserved across swaps/overrides; explicit week assignment is stored separately.
 - If everyone is skipped for a week, the reminder posts a warning and admins are DM’d.
-- Config updates via `/oncall-config` that affect schedule require process restart to reload cron settings.
+- Config updates via `/oncall-set schedule ...` require process restart to reload cron settings.
 - The command URLs in the manifest are placeholders for Socket Mode and are not used by this local MVP runtime.
