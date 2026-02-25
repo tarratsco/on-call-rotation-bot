@@ -68,6 +68,27 @@ function parseChannelId(text) {
   return null;
 }
 
+function resolveChannelId(text, command) {
+  const fromToken = parseChannelId(text);
+  if (fromToken) {
+    return fromToken;
+  }
+
+  const raw = (text || '').trim();
+  const nameMatch = /^#([a-z0-9._-]+)$/i.exec(raw);
+  if (!nameMatch) {
+    return null;
+  }
+
+  const requestedName = nameMatch[1].toLowerCase();
+  const currentName = (command.channel_name || '').trim().toLowerCase();
+  if (requestedName && currentName && requestedName === currentName) {
+    return command.channel_id;
+  }
+
+  return null;
+}
+
 function mention(userId) {
   return `<@${userId}>`;
 }
@@ -243,6 +264,8 @@ function createHandlers({ app, rotationService, logger }) {
         '`/oncall-skip [week]` or `/oncall-skip @user [week]` — mark unavailable',
         '`/oncall-override @user [week]` — force assign (admin)',
         '`/oncall-config ...` — view/update config (admin)',
+        '`/oncall-config rotation @user1 @user2 ...` — set queue order (admin)',
+        '`/oncall-config clear-queue` — clear participants + schedule state (admin)',
       ].join('\n'),
     });
   });
@@ -657,21 +680,81 @@ function createHandlers({ app, rotationService, logger }) {
     const text = (command.text || '').trim();
     if (!text) {
       const config = rotationService.getConfig();
+      const configText = Object.entries(config)
+        .map(([key, value]) => {
+          if (key === 'reminder_channel' && value) {
+            return `${key}: <#${value}>`;
+          }
+          return `${key}: ${value}`;
+        })
+        .join('\n') || 'No config set.';
       await sendEphemeral({
         respond,
         client,
         command,
         logger,
-        text: Object.entries(config).map(([k, v]) => `${k}: ${v}`).join('\n') || 'No config set.',
+        text: [
+          '*Current config*',
+          configText,
+          '',
+          '*Available subcommands*',
+          '- `/oncall-config channel #channel`',
+          '- `/oncall-config schedule Monday 09:00 America/New_York`',
+          '- `/oncall-config rotation @user1 @user2 ...`',
+          '- `/oncall-config clear-queue`',
+        ].join('\n'),
+      });
+      return;
+    }
+
+    if (text.startsWith('rotation ')) {
+      const raw = text.replace(/^rotation\s+/i, '').trim();
+      const userIds = await parseSlackUserIds(raw, client);
+      if (!userIds.length) {
+        await sendEphemeral({ respond, client, command, logger, text: 'Usage: /oncall-config rotation @user1 @user2 ... (include each active participant exactly once)' });
+        return;
+      }
+
+      const result = rotationService.setQueueOrderBySlackIds(userIds);
+      if (!result.updated) {
+        await sendEphemeral({ respond, client, command, logger, text: result.error || 'Could not update rotation order.' });
+        return;
+      }
+
+      const lines = result.members.map((member, index) => `${index + 1}. ${formatMember(member)}`);
+      await sendEphemeral({
+        respond,
+        client,
+        command,
+        logger,
+        text: `Rotation order updated:\n${lines.join('\n')}`,
+      });
+      return;
+    }
+
+    if (text === 'clear-queue') {
+      const result = rotationService.clearQueueAndScheduleState();
+      await sendEphemeral({
+        respond,
+        client,
+        command,
+        logger,
+        text: `Rotation queue cleared. Deactivated ${result.clearedMembers} active participant(s) and reset overrides/history/pending swaps.`,
       });
       return;
     }
 
     if (text.startsWith('channel ')) {
       const raw = text.replace(/^channel\s+/i, '').trim();
-      const channelId = parseChannelId(raw);
+      const channelId = resolveChannelId(raw, command);
       if (!channelId) {
-        await sendEphemeral({ respond, client, command, logger, text: 'Usage: /oncall-config channel #channel or CHANNEL_ID' });
+        await sendEphemeral({
+          respond,
+          client,
+          command,
+          logger,
+          text: 'Usage: /oncall-config channel #channel or CHANNEL_ID. For #channel-name input, run the command inside that channel.',
+        });
         return;
       }
       rotationService.setConfig('reminder_channel', channelId);
@@ -700,7 +783,7 @@ function createHandlers({ app, rotationService, logger }) {
       client,
       command,
       logger,
-      text: 'Usage: /oncall-config channel #channel OR /oncall-config schedule Monday 09:00 America/New_York',
+      text: 'Usage: /oncall-config channel #channel OR /oncall-config schedule Monday 09:00 America/New_York OR /oncall-config rotation @user1 @user2 ... OR /oncall-config clear-queue',
     });
   });
 }

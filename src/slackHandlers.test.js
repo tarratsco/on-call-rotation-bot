@@ -56,17 +56,19 @@ function createRotationServiceStub(overrides = {}) {
     getAdmins: () => [],
     getConfig: () => ({ reminder_channel: '', reminder_day: 'Monday', reminder_time: '09:00', reminder_timezone: 'UTC' }),
     setConfig: () => {},
+    setQueueOrderBySlackIds: () => ({ updated: false, error: 'Not implemented' }),
+    clearQueueAndScheduleState: () => ({ clearedMembers: 0 }),
     ...overrides,
   };
 }
 
-async function invoke(app, commandName, { text = '', userId = 'U1', channelId = 'C1', respondImpl, client } = {}) {
+async function invoke(app, commandName, { text = '', userId = 'U1', channelId = 'C1', channelName = 'general', respondImpl, client } = {}) {
   const handler = app.handlers.get(commandName);
   let response;
 
   await handler({
     ack: async () => {},
-    command: { command: commandName, user_id: userId, channel_id: channelId, text },
+    command: { command: commandName, user_id: userId, channel_id: channelId, channel_name: channelName, text },
     respond: respondImpl || (async (payload) => {
       response = payload;
     }),
@@ -384,6 +386,129 @@ test('/oncall-config updates channel and schedule values', async () => {
     { key: 'reminder_time', value: '09:00' },
     { key: 'reminder_timezone', value: 'America/New_York' },
   ]);
+});
+
+test('/oncall-config channel accepts #channel-name in current channel', async () => {
+  const app = createFakeApp();
+  const setCalls = [];
+  const rotationService = createRotationServiceStub({
+    isAdmin: () => true,
+    setConfig: (key, value) => setCalls.push({ key, value }),
+  });
+  createHandlers({ app, rotationService, logger: console });
+
+  const response = await invoke(app, '/oncall-config', {
+    text: 'channel #on-call-reminders',
+    userId: 'UADMIN',
+    channelId: 'C12345',
+    channelName: 'on-call-reminders',
+  });
+
+  assert.match(response.text, /Reminder channel set/);
+  assert.deepEqual(setCalls, [{ key: 'reminder_channel', value: 'C12345' }]);
+});
+
+test('/oncall-config channel rejects #channel-name when not current channel', async () => {
+  const app = createFakeApp();
+  const setCalls = [];
+  const rotationService = createRotationServiceStub({
+    isAdmin: () => true,
+    setConfig: (key, value) => setCalls.push({ key, value }),
+  });
+  createHandlers({ app, rotationService, logger: console });
+
+  const response = await invoke(app, '/oncall-config', {
+    text: 'channel #on-call-reminders',
+    userId: 'UADMIN',
+    channelId: 'C12345',
+    channelName: 'other-channel',
+  });
+
+  assert.match(response.text, /Usage: \/oncall-config channel #channel or CHANNEL_ID/);
+  assert.equal(setCalls.length, 0);
+});
+
+test('/oncall-config without args includes current config and subcommand help', async () => {
+  const app = createFakeApp();
+  const rotationService = createRotationServiceStub({
+    isAdmin: () => true,
+    getConfig: () => ({ reminder_channel: 'COPS', reminder_day: 'Monday' }),
+  });
+  createHandlers({ app, rotationService, logger: console });
+
+  const response = await invoke(app, '/oncall-config', {
+    text: '',
+    userId: 'UADMIN',
+  });
+
+  assert.match(response.text, /\*Current config\*/);
+  assert.match(response.text, /reminder_channel: <#COPS>/);
+  assert.match(response.text, /\*Available subcommands\*/);
+  assert.match(response.text, /\/oncall-config rotation @user1 @user2/);
+  assert.match(response.text, /\/oncall-config clear-queue/);
+});
+
+test('/oncall-config rotation updates queue order', async () => {
+  const app = createFakeApp();
+  const calls = [];
+  const rotationService = createRotationServiceStub({
+    isAdmin: () => true,
+    setQueueOrderBySlackIds: (ids) => {
+      calls.push(ids);
+      return {
+        updated: true,
+        members: [
+          { slack_user_id: 'U2', display_name: 'Two' },
+          { slack_user_id: 'U1', display_name: 'One' },
+        ],
+      };
+    },
+  });
+  createHandlers({ app, rotationService, logger: console });
+
+  const response = await invoke(app, '/oncall-config', {
+    text: 'rotation <@U2> <@U1>',
+    userId: 'UADMIN',
+  });
+
+  assert.deepEqual(calls, [['U2', 'U1']]);
+  assert.match(response.text, /Rotation order updated/);
+  assert.match(response.text, /1\. <@U2>/);
+  assert.match(response.text, /2\. <@U1>/);
+});
+
+test('/oncall-config rotation returns validation error from service', async () => {
+  const app = createFakeApp();
+  const rotationService = createRotationServiceStub({
+    isAdmin: () => true,
+    setQueueOrderBySlackIds: () => ({ updated: false, error: 'Include each active participant exactly once.' }),
+  });
+  createHandlers({ app, rotationService, logger: console });
+
+  const response = await invoke(app, '/oncall-config', {
+    text: 'rotation <@U1>',
+    userId: 'UADMIN',
+  });
+
+  assert.match(response.text, /Include each active participant exactly once/);
+});
+
+test('/oncall-config clear-queue resets participants and schedule state', async () => {
+  const app = createFakeApp();
+  const rotationService = createRotationServiceStub({
+    isAdmin: () => true,
+    clearQueueAndScheduleState: () => ({ clearedMembers: 4 }),
+  });
+  createHandlers({ app, rotationService, logger: console });
+
+  const response = await invoke(app, '/oncall-config', {
+    text: 'clear-queue',
+    userId: 'UADMIN',
+  });
+
+  assert.match(response.text, /Rotation queue cleared/);
+  assert.match(response.text, /Deactivated 4 active participant/);
+  assert.match(response.text, /reset overrides\/history\/pending swaps/);
 });
 
 test('/oncall-override accepts plain @handle with valid date', async () => {

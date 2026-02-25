@@ -109,6 +109,50 @@ class RotationService {
     });
   }
 
+  setQueueOrderBySlackIds(slackUserIds = []) {
+    const members = this.listMembers();
+    if (!members.length) {
+      return { updated: false, error: 'No active participants yet.' };
+    }
+
+    const uniqueIds = [...new Set(slackUserIds)];
+    if (uniqueIds.length !== slackUserIds.length) {
+      return { updated: false, error: 'Duplicate users are not allowed in rotation order.' };
+    }
+
+    if (uniqueIds.length !== members.length) {
+      return { updated: false, error: `Expected ${members.length} users, received ${uniqueIds.length}. Include each active participant exactly once.` };
+    }
+
+    const activeBySlackId = new Map(members.map((member) => [member.slack_user_id, member]));
+    for (const slackUserId of uniqueIds) {
+      if (!activeBySlackId.has(slackUserId)) {
+        return { updated: false, error: `User ${slackUserId} is not an active participant.` };
+      }
+    }
+
+    const update = this.db.prepare('UPDATE team_members SET queue_position = ? WHERE slack_user_id = ?');
+    uniqueIds.forEach((slackUserId, index) => {
+      update.run(index + 1, slackUserId);
+    });
+
+    return { updated: true, members: this.listMembers() };
+  }
+
+  clearQueueAndScheduleState() {
+    const activeCountRow = this.db.prepare('SELECT COUNT(*) AS count FROM team_members WHERE is_active = 1').get();
+
+    this.db.prepare('UPDATE team_members SET is_active = 0 WHERE is_active = 1').run();
+    this.db.prepare('DELETE FROM rotation_history').run();
+    this.db.prepare('DELETE FROM schedule_overrides').run();
+    this.db.prepare('DELETE FROM pending_swaps').run();
+    this.db.prepare('DELETE FROM pending_back_to_back_approvals').run();
+
+    return {
+      clearedMembers: activeCountRow.count,
+    };
+  }
+
   moveToBack(memberId) {
     const members = this.listMembers();
     const current = members.find((m) => m.id === memberId);

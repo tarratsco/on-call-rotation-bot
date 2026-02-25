@@ -155,6 +155,67 @@ test('new member is appended at back of queue', () => {
   cleanup();
 });
 
+test('setQueueOrderBySlackIds updates manual queue order', () => {
+  const { service, cleanup } = createService();
+  service.addMember({ slackUserId: 'U1', displayName: 'One' });
+  service.addMember({ slackUserId: 'U2', displayName: 'Two' });
+  service.addMember({ slackUserId: 'U3', displayName: 'Three' });
+
+  const result = service.setQueueOrderBySlackIds(['U3', 'U1', 'U2']);
+  assert.equal(result.updated, true);
+  assert.deepEqual(service.listMembers().map((m) => m.slack_user_id), ['U3', 'U1', 'U2']);
+
+  cleanup();
+});
+
+test('setQueueOrderBySlackIds validates complete unique participant list', () => {
+  const { service, cleanup } = createService();
+  service.addMember({ slackUserId: 'U1', displayName: 'One' });
+  service.addMember({ slackUserId: 'U2', displayName: 'Two' });
+
+  const duplicate = service.setQueueOrderBySlackIds(['U1', 'U1']);
+  assert.equal(duplicate.updated, false);
+  assert.match(duplicate.error, /Duplicate users/);
+
+  const missing = service.setQueueOrderBySlackIds(['U1']);
+  assert.equal(missing.updated, false);
+  assert.match(missing.error, /Include each active participant exactly once/);
+
+  cleanup();
+});
+
+test('clearQueueAndScheduleState deactivates members and clears scheduling tables', () => {
+  const { service, db, cleanup } = createService();
+  const u1 = service.addMember({ slackUserId: 'U1', displayName: 'One' });
+  const u2 = service.addMember({ slackUserId: 'U2', displayName: 'Two' });
+
+  service.getFinalAssignmentForWeek('2026-02-16');
+  service.setSkip({ weekStart: '2026-02-23', memberId: u1.id, createdBy: 'U1' });
+  service.createPendingSwap({ weekStart: '2026-02-23', requesterUserId: 'U1', targetUserId: 'U2' });
+  service.createBackToBackApproval({
+    weekStart: '2026-03-02',
+    memberId: u2.id,
+    memberSlackUserId: 'U2',
+    overrideType: 'override',
+    requestedBy: 'U1',
+  });
+
+  const result = service.clearQueueAndScheduleState();
+  assert.equal(result.clearedMembers, 2);
+  assert.equal(service.listMembers().length, 0);
+
+  const historyCount = db.prepare('SELECT COUNT(*) AS count FROM rotation_history').get().count;
+  const overridesCount = db.prepare('SELECT COUNT(*) AS count FROM schedule_overrides').get().count;
+  const swapsCount = db.prepare('SELECT COUNT(*) AS count FROM pending_swaps').get().count;
+  const approvalsCount = db.prepare('SELECT COUNT(*) AS count FROM pending_back_to_back_approvals').get().count;
+  assert.equal(historyCount, 0);
+  assert.equal(overridesCount, 0);
+  assert.equal(swapsCount, 0);
+  assert.equal(approvalsCount, 0);
+
+  cleanup();
+});
+
 test('removeMember returns false when member is absent', () => {
   const { service, cleanup } = createService();
   service.addMember({ slackUserId: 'U1', displayName: 'One' });
