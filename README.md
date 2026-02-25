@@ -59,8 +59,11 @@ The manifest preconfigures:
    ```
 5. In Slack, run:
    - `/oncall-help`
+   - `/oncall-config` (shows current config + subcommand help)
    - `/oncall-config channel #your-channel`
    - `/oncall-config schedule Monday 09:00 America/New_York`
+   - `/oncall-config rotation @user1 @user2 @user3`
+   - `/oncall-config clear-queue`
    - `/oncall-add @your-user`
 
 ## Testing
@@ -118,6 +121,31 @@ Slash commands are already defined in the manifest file. If you change command n
 - `/oncall-override`
 - `/oncall-config`
 - `/oncall-help`
+
+`/oncall-config` subcommands (admin):
+
+- `/oncall-config` — show current config + available subcommands
+- `/oncall-config channel #channel` — set reminder channel
+- `/oncall-config schedule Monday 09:00 America/New_York` — set reminder schedule
+- `/oncall-config rotation @user1 @user2 ...` — manually set queue order
+- `/oncall-config clear-queue` — clear active participants + schedule state
+
+To manually set starting queue order, use:
+
+- `/oncall-config rotation @user1 @user2 @user3 ...`
+
+Include each active participant exactly once in the desired order.
+
+To reset rotation state after testing, use:
+
+- `/oncall-config clear-queue`
+
+This deactivates all active participants and clears rotation history, overrides, and pending swaps/approvals.
+
+Channel input notes:
+
+- `reminder_channel` is shown as a Slack channel mention (`<#CHANNEL_ID>`) in `/oncall-config` output.
+- If you pass `/oncall-config channel #channel-name`, run it inside that same channel so the bot can resolve the ID.
 
 ## Notes
 
