@@ -29,7 +29,7 @@ These are the day-to-day commands for participants to view schedule status and h
 
 These commands are restricted to admins and control roster management, scheduling, and configuration.
 
-- `/oncall-add @user` — add a participant to the rotation queue
+- `/oncall-add @user [@user2 ...]` — add one or more participants to the rotation queue
 - `/oncall-remove @user` — remove/deactivate a participant from the active queue
 - `/oncall-override @user [YYYY-MM-DD]` — force assign on-call for a specific week
 - `/oncall-swap @user1 @user2 [YYYY-MM-DD]` — admin-initiated swap/assignment

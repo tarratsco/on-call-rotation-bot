@@ -67,7 +67,7 @@ The manifest preconfigures:
    - `/oncall-config clear-schedule`
    - `/oncall-config clear-queue`
    - `/oncall-config clear-all`
-   - `/oncall-add @your-user`
+   - `/oncall-add @user1 @user2 @user3`
 
 ## Testing
 
@@ -154,6 +154,11 @@ To fully reset all active participants and schedule state, use:
 - `/oncall-config clear-all`
 
 `clear-schedule` and `clear-queue` keep active participants. `clear-all` deactivates all active participants. All three clear rotation history, overrides, and pending swaps/approvals.
+
+`/oncall-add` supports one or more users in a single command:
+
+- `/oncall-add @user`
+- `/oncall-add @user1 @user2 @user3`
 
 Channel input notes:
 

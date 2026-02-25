@@ -26,7 +26,7 @@ The bot manages a weekly on-call rotation in Slack.
 
 ### Admin only
 
-- `/oncall-add @user` — Add participant
+- `/oncall-add @user [@user2 ...]` — Add one or more participants
 - `/oncall-remove @user` — Remove participant
 - `/oncall-override @user [YYYY-MM-DD]` — Force assign a user for a week
 - `/oncall-swap @user1 @user2 [YYYY-MM-DD]` — Admin swap/assign flow
@@ -154,6 +154,7 @@ Note: seeded users are not real Slack accounts; the bot shows their display name
 - `/oncall-schedule [weeks]`
 - `/oncall-list`
 - `/oncall-add @user`
+- `/oncall-add @user [@user2 ...]`
 - `/oncall-remove @user`
 - `/oncall-skip [week]`
 - `/oncall-swap ...`
