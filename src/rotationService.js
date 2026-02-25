@@ -139,17 +139,39 @@ class RotationService {
     return { updated: true, members: this.listMembers() };
   }
 
-  clearQueueAndScheduleState() {
-    const activeCountRow = this.db.prepare('SELECT COUNT(*) AS count FROM team_members WHERE is_active = 1').get();
-
-    this.db.prepare('UPDATE team_members SET is_active = 0 WHERE is_active = 1').run();
+  clearScheduleState() {
     this.db.prepare('DELETE FROM rotation_history').run();
     this.db.prepare('DELETE FROM schedule_overrides').run();
     this.db.prepare('DELETE FROM pending_swaps').run();
     this.db.prepare('DELETE FROM pending_back_to_back_approvals').run();
 
+    return { cleared: true };
+  }
+
+  clearQueueKeepUsers() {
+    const activeMembers = this.db
+      .prepare('SELECT id FROM team_members WHERE is_active = 1 ORDER BY created_at ASC, slack_user_id ASC')
+      .all();
+
+    const update = this.db.prepare('UPDATE team_members SET queue_position = ? WHERE id = ?');
+    activeMembers.forEach((member, index) => {
+      update.run(index + 1, member.id);
+    });
+
+    this.clearScheduleState();
+
     return {
-      clearedMembers: activeCountRow.count,
+      activeMembers: activeMembers.length,
+    };
+  }
+
+  clearAllData() {
+    const activeCountRow = this.db.prepare('SELECT COUNT(*) AS count FROM team_members WHERE is_active = 1').get();
+    this.db.prepare('UPDATE team_members SET is_active = 0 WHERE is_active = 1').run();
+    this.clearScheduleState();
+
+    return {
+      deactivatedMembers: activeCountRow.count,
     };
   }
 

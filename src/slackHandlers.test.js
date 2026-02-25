@@ -57,7 +57,9 @@ function createRotationServiceStub(overrides = {}) {
     getConfig: () => ({ reminder_channel: '', reminder_day: 'Monday', reminder_time: '09:00', reminder_timezone: 'UTC' }),
     setConfig: () => {},
     setQueueOrderBySlackIds: () => ({ updated: false, error: 'Not implemented' }),
-    clearQueueAndScheduleState: () => ({ clearedMembers: 0 }),
+    clearScheduleState: () => ({ cleared: true }),
+    clearQueueKeepUsers: () => ({ activeMembers: 0 }),
+    clearAllData: () => ({ deactivatedMembers: 0 }),
     ...overrides,
   };
 }
@@ -445,7 +447,9 @@ test('/oncall-config without args includes current config and subcommand help', 
   assert.match(response.text, /reminder_channel: <#COPS>/);
   assert.match(response.text, /\*Available subcommands\*/);
   assert.match(response.text, /\/oncall-config rotation @user1 @user2/);
+  assert.match(response.text, /\/oncall-config clear-schedule/);
   assert.match(response.text, /\/oncall-config clear-queue/);
+  assert.match(response.text, /\/oncall-config clear-all/);
 });
 
 test('/oncall-config rotation updates queue order', async () => {
@@ -493,11 +497,28 @@ test('/oncall-config rotation returns validation error from service', async () =
   assert.match(response.text, /Include each active participant exactly once/);
 });
 
-test('/oncall-config clear-queue resets participants and schedule state', async () => {
+test('/oncall-config clear-schedule keeps users and clears schedule state', async () => {
   const app = createFakeApp();
   const rotationService = createRotationServiceStub({
     isAdmin: () => true,
-    clearQueueAndScheduleState: () => ({ clearedMembers: 4 }),
+    clearScheduleState: () => ({ cleared: true }),
+  });
+  createHandlers({ app, rotationService, logger: console });
+
+  const response = await invoke(app, '/oncall-config', {
+    text: 'clear-schedule',
+    userId: 'UADMIN',
+  });
+
+  assert.match(response.text, /Schedule state cleared/);
+  assert.match(response.text, /Active participants were kept/);
+});
+
+test('/oncall-config clear-queue keeps users and resets queue/schedule state', async () => {
+  const app = createFakeApp();
+  const rotationService = createRotationServiceStub({
+    isAdmin: () => true,
+    clearQueueKeepUsers: () => ({ activeMembers: 4 }),
   });
   createHandlers({ app, rotationService, logger: console });
 
@@ -506,9 +527,27 @@ test('/oncall-config clear-queue resets participants and schedule state', async 
     userId: 'UADMIN',
   });
 
-  assert.match(response.text, /Rotation queue cleared/);
+  assert.match(response.text, /Queue reset complete/);
+  assert.match(response.text, /Kept 4 active participant/);
+  assert.match(response.text, /cleared rotation history\/overrides\/pending swaps\/approvals/);
+});
+
+test('/oncall-config clear-all deactivates users and clears schedule state', async () => {
+  const app = createFakeApp();
+  const rotationService = createRotationServiceStub({
+    isAdmin: () => true,
+    clearAllData: () => ({ deactivatedMembers: 4 }),
+  });
+  createHandlers({ app, rotationService, logger: console });
+
+  const response = await invoke(app, '/oncall-config', {
+    text: 'clear-all',
+    userId: 'UADMIN',
+  });
+
+  assert.match(response.text, /Full reset complete/);
   assert.match(response.text, /Deactivated 4 active participant/);
-  assert.match(response.text, /reset overrides\/history\/pending swaps/);
+  assert.match(response.text, /cleared rotation history\/overrides\/pending swaps\/approvals/);
 });
 
 test('/oncall-override accepts plain @handle with valid date', async () => {

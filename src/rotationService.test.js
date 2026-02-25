@@ -184,7 +184,7 @@ test('setQueueOrderBySlackIds validates complete unique participant list', () =>
   cleanup();
 });
 
-test('clearQueueAndScheduleState deactivates members and clears scheduling tables', () => {
+test('clearScheduleState clears scheduling tables but keeps active members', () => {
   const { service, db, cleanup } = createService();
   const u1 = service.addMember({ slackUserId: 'U1', displayName: 'One' });
   const u2 = service.addMember({ slackUserId: 'U2', displayName: 'Two' });
@@ -200,9 +200,9 @@ test('clearQueueAndScheduleState deactivates members and clears scheduling table
     requestedBy: 'U1',
   });
 
-  const result = service.clearQueueAndScheduleState();
-  assert.equal(result.clearedMembers, 2);
-  assert.equal(service.listMembers().length, 0);
+  const result = service.clearScheduleState();
+  assert.equal(result.cleared, true);
+  assert.equal(service.listMembers().length, 2);
 
   const historyCount = db.prepare('SELECT COUNT(*) AS count FROM rotation_history').get().count;
   const overridesCount = db.prepare('SELECT COUNT(*) AS count FROM schedule_overrides').get().count;
@@ -212,6 +212,45 @@ test('clearQueueAndScheduleState deactivates members and clears scheduling table
   assert.equal(overridesCount, 0);
   assert.equal(swapsCount, 0);
   assert.equal(approvalsCount, 0);
+
+  cleanup();
+});
+
+test('clearQueueKeepUsers keeps users active, resets queue order, and clears schedule state', () => {
+  const { service, db, cleanup } = createService();
+  const u1 = service.addMember({ slackUserId: 'U1', displayName: 'One' });
+  const u2 = service.addMember({ slackUserId: 'U2', displayName: 'Two' });
+  service.addMember({ slackUserId: 'U3', displayName: 'Three' });
+
+  service.setQueueOrderBySlackIds(['U3', 'U2', 'U1']);
+  service.setSkip({ weekStart: '2026-02-23', memberId: u1.id, createdBy: 'U1' });
+  service.createPendingSwap({ weekStart: '2026-02-23', requesterUserId: 'U1', targetUserId: 'U2' });
+
+  const result = service.clearQueueKeepUsers();
+  assert.equal(result.activeMembers, 3);
+  assert.deepEqual(service.listMembers().map((m) => m.slack_user_id), ['U1', 'U2', 'U3']);
+
+  const overridesCount = db.prepare('SELECT COUNT(*) AS count FROM schedule_overrides').get().count;
+  const swapsCount = db.prepare('SELECT COUNT(*) AS count FROM pending_swaps').get().count;
+  assert.equal(overridesCount, 0);
+  assert.equal(swapsCount, 0);
+
+  cleanup();
+});
+
+test('clearAllData deactivates users and clears scheduling state', () => {
+  const { service, db, cleanup } = createService();
+  const u1 = service.addMember({ slackUserId: 'U1', displayName: 'One' });
+  service.addMember({ slackUserId: 'U2', displayName: 'Two' });
+
+  service.setSkip({ weekStart: '2026-02-23', memberId: u1.id, createdBy: 'U1' });
+  const result = service.clearAllData();
+
+  assert.equal(result.deactivatedMembers, 2);
+  assert.equal(service.listMembers().length, 0);
+
+  const overridesCount = db.prepare('SELECT COUNT(*) AS count FROM schedule_overrides').get().count;
+  assert.equal(overridesCount, 0);
 
   cleanup();
 });

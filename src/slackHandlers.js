@@ -265,7 +265,9 @@ function createHandlers({ app, rotationService, logger }) {
         '`/oncall-override @user [week]` — force assign (admin)',
         '`/oncall-config ...` — view/update config (admin)',
         '`/oncall-config rotation @user1 @user2 ...` — set queue order (admin)',
-        '`/oncall-config clear-queue` — clear participants + schedule state (admin)',
+        '`/oncall-config clear-schedule` — clear schedule state, keep users (admin)',
+        '`/oncall-config clear-queue` — reset queue order + schedule state, keep users (admin)',
+        '`/oncall-config clear-all` — deactivate all users + clear schedule state (admin)',
       ].join('\n'),
     });
   });
@@ -701,7 +703,9 @@ function createHandlers({ app, rotationService, logger }) {
           '- `/oncall-config channel #channel`',
           '- `/oncall-config schedule Monday 09:00 America/New_York`',
           '- `/oncall-config rotation @user1 @user2 ...`',
+          '- `/oncall-config clear-schedule`',
           '- `/oncall-config clear-queue`',
+          '- `/oncall-config clear-all`',
         ].join('\n'),
       });
       return;
@@ -732,14 +736,38 @@ function createHandlers({ app, rotationService, logger }) {
       return;
     }
 
-    if (text === 'clear-queue') {
-      const result = rotationService.clearQueueAndScheduleState();
+    if (text === 'clear-schedule') {
+      rotationService.clearScheduleState();
       await sendEphemeral({
         respond,
         client,
         command,
         logger,
-        text: `Rotation queue cleared. Deactivated ${result.clearedMembers} active participant(s) and reset overrides/history/pending swaps.`,
+        text: 'Schedule state cleared. Active participants were kept. Cleared rotation history, overrides, pending swaps, and pending approvals.',
+      });
+      return;
+    }
+
+    if (text === 'clear-queue') {
+      const result = rotationService.clearQueueKeepUsers();
+      await sendEphemeral({
+        respond,
+        client,
+        command,
+        logger,
+        text: `Queue reset complete. Kept ${result.activeMembers} active participant(s), reset queue order, and cleared rotation history/overrides/pending swaps/approvals.`,
+      });
+      return;
+    }
+
+    if (text === 'clear-all') {
+      const result = rotationService.clearAllData();
+      await sendEphemeral({
+        respond,
+        client,
+        command,
+        logger,
+        text: `Full reset complete. Deactivated ${result.deactivatedMembers} active participant(s) and cleared rotation history/overrides/pending swaps/approvals.`,
       });
       return;
     }
@@ -783,7 +811,7 @@ function createHandlers({ app, rotationService, logger }) {
       client,
       command,
       logger,
-      text: 'Usage: /oncall-config channel #channel OR /oncall-config schedule Monday 09:00 America/New_York OR /oncall-config rotation @user1 @user2 ... OR /oncall-config clear-queue',
+      text: 'Usage: /oncall-config channel #channel OR /oncall-config schedule Monday 09:00 America/New_York OR /oncall-config rotation @user1 @user2 ... OR /oncall-config clear-schedule OR /oncall-config clear-queue OR /oncall-config clear-all',
     });
   });
 }
