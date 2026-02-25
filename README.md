@@ -64,7 +64,9 @@ The manifest preconfigures:
    - `/oncall-config channel #your-channel`
    - `/oncall-config schedule Monday 09:00 America/New_York`
    - `/oncall-config rotation @user1 @user2 @user3`
+   - `/oncall-config clear-schedule`
    - `/oncall-config clear-queue`
+   - `/oncall-config clear-all`
    - `/oncall-add @your-user`
 
 ## Testing
@@ -129,7 +131,9 @@ Slash commands are already defined in the manifest file. If you change command n
 - `/oncall-config channel #channel` — set reminder channel
 - `/oncall-config schedule Monday 09:00 America/New_York` — set reminder schedule
 - `/oncall-config rotation @user1 @user2 ...` — manually set queue order
-- `/oncall-config clear-queue` — clear active participants + schedule state
+- `/oncall-config clear-schedule` — clear schedule state only (keep active users)
+- `/oncall-config clear-queue` — reset queue order + clear schedule state (keep active users)
+- `/oncall-config clear-all` — deactivate all active users + clear schedule state
 
 To manually set starting queue order, use:
 
@@ -137,11 +141,19 @@ To manually set starting queue order, use:
 
 Include each active participant exactly once in the desired order.
 
-To reset rotation state after testing, use:
+To reset schedule state while keeping users, use:
+
+- `/oncall-config clear-schedule`
+
+To reset queue order + schedule state while keeping users, use:
 
 - `/oncall-config clear-queue`
 
-This deactivates all active participants and clears rotation history, overrides, and pending swaps/approvals.
+To fully reset all active participants and schedule state, use:
+
+- `/oncall-config clear-all`
+
+`clear-schedule` and `clear-queue` keep active participants. `clear-all` deactivates all active participants. All three clear rotation history, overrides, and pending swaps/approvals.
 
 Channel input notes:
 

@@ -37,7 +37,9 @@ These commands are restricted to admins and control roster management, schedulin
 - `/oncall-config channel #channel` — set reminder destination channel
 - `/oncall-config schedule Monday 09:00 America/New_York` — set reminder cadence
 - `/oncall-config rotation @user1 @user2 ...` — set manual queue order
-- `/oncall-config clear-queue` — clear active participants and scheduling state
+- `/oncall-config clear-schedule` — clear schedule state only (keep active users)
+- `/oncall-config clear-queue` — reset queue order + clear schedule state (keep active users)
+- `/oncall-config clear-all` — deactivate all active users + clear schedule state
 
 ## Common Recovery Flows
 
@@ -52,11 +54,27 @@ Use when the assignment order looks wrong or you want to set a specific starting
 
 Rule: include each active participant exactly once.
 
+### Clear schedule state but keep users
+
+Use when overrides/skips/swaps/history need reset but participant roster is correct.
+
+- `/oncall-config clear-schedule`
+
+Clears rotation history, overrides, pending swaps, and pending approvals.
+
+### Reset queue + schedule state (keep users)
+
+Use when you want a clean queue baseline and clean schedule state, without removing participants.
+
+- `/oncall-config clear-queue`
+
+Keeps active users, resets queue order, and clears rotation history/overrides/pending swaps/approvals.
+
 ### Reset test state completely
 
 Use when test overrides/skips/swaps have polluted the current schedule.
 
-- `/oncall-config clear-queue`
+- `/oncall-config clear-all`
 
 This deactivates all active participants and clears rotation history, overrides, pending swaps, and pending approvals.
 

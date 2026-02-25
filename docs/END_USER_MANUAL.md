@@ -32,7 +32,9 @@ The bot manages a weekly on-call rotation in Slack.
 - `/oncall-swap @user1 @user2 [YYYY-MM-DD]` — Admin swap/assign flow
 - `/oncall-config ...` — View/update reminder settings
 - `/oncall-config rotation @user1 @user2 ...` — Manually set queue order
-- `/oncall-config clear-queue` — Reset participants and schedule state
+- `/oncall-config clear-schedule` — Clear schedule state (keep active participants)
+- `/oncall-config clear-queue` — Reset queue order + schedule state (keep active participants)
+- `/oncall-config clear-all` — Deactivate all active participants + clear schedule state
 
 `/oncall-config` notes:
 
@@ -53,9 +55,13 @@ The bot manages a weekly on-call rotation in Slack.
    - `/oncall-config channel #on-call`
 4. Configure reminder schedule:
    - `/oncall-config schedule Monday 09:00 America/New_York`
-5. (Optional) Reset queue + scheduling state after testing:
+5. (Optional) Clear schedule state after testing while keeping users:
+   - `/oncall-config clear-schedule`
+6. (Optional) Reset queue order + schedule state while keeping users:
    - `/oncall-config clear-queue`
-6. Verify config/help output:
+7. (Optional) Full destructive reset (deactivates all active users):
+   - `/oncall-config clear-all`
+8. Verify config/help output:
    - `/oncall-config`
 
 ---
@@ -156,5 +162,7 @@ Note: seeded users are not real Slack accounts; the bot shows their display name
 - `/oncall-config channel #channel` (admin)
 - `/oncall-config schedule Monday 09:00 America/New_York` (admin)
 - `/oncall-config rotation @user1 @user2 ...`
+- `/oncall-config clear-schedule`
 - `/oncall-config clear-queue`
+- `/oncall-config clear-all`
 - `/oncall-help`
