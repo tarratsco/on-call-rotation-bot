@@ -5,6 +5,7 @@ Slack bot for fair weekly on-call assignment with round-robin rotation, skip/ove
 ## Documentation
 
 - End-user guide: [docs/END_USER_MANUAL.md](docs/END_USER_MANUAL.md)
+- One-page cheatsheet: [docs/CHEATSHEET.md](docs/CHEATSHEET.md)
 
 ## Prerequisites
 
