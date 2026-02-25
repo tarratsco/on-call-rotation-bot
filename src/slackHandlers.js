@@ -255,7 +255,7 @@ function createHandlers({ app, rotationService, logger }) {
         '*On-call bot commands*',
         '`/oncall` — show this week on-call',
         '`/oncall-schedule [weeks]` — show upcoming schedule',
-        '`/oncall-add @user` — add participant (admin)',
+        '`/oncall-add @user [@user2 ...]` — add participant(s) (admin)',
         '`/oncall-remove @user` — remove participant (admin)',
         '`/oncall-list` — list participants in queue order',
         '`/oncall-swap @user1 @user2 [week]` — admin swap/assign',
@@ -322,15 +322,29 @@ function createHandlers({ app, rotationService, logger }) {
     }
 
     const userIds = await parseSlackUserIds(command.text || '', client);
-    if (userIds.length !== 1) {
-      await sendEphemeral({ respond, client, command, logger, text: 'Usage: /oncall-add @user' });
+    if (userIds.length < 1) {
+      await sendEphemeral({ respond, client, command, logger, text: 'Usage: /oncall-add @user [@user2 ...]' });
       return;
     }
 
-    const userId = userIds[0];
-    const displayName = await resolveUserDisplayName(userId);
-    rotationService.addMember({ slackUserId: userId, displayName });
-    await sendEphemeral({ respond, client, command, logger, text: `Added ${mention(userId)} to the rotation.` });
+    for (const userId of userIds) {
+      const displayName = await resolveUserDisplayName(userId);
+      rotationService.addMember({ slackUserId: userId, displayName });
+    }
+
+    const addedMentions = userIds.map((userId) => mention(userId));
+    if (addedMentions.length === 1) {
+      await sendEphemeral({ respond, client, command, logger, text: `Added ${addedMentions[0]} to the rotation.` });
+      return;
+    }
+
+    await sendEphemeral({
+      respond,
+      client,
+      command,
+      logger,
+      text: `Added ${addedMentions.length} users to the rotation: ${addedMentions.join(', ')}.`,
+    });
   });
 
   app.command('/oncall-remove', async ({ ack, command, respond, client }) => {

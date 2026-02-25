@@ -118,6 +118,28 @@ test('/oncall-add resolves plain @handle and adds member', async () => {
   assert.match(responses[0].text, /Added <@U123>/);
 });
 
+test('/oncall-add supports multiple users in one command', async () => {
+  const app = createFakeApp();
+  const added = [];
+  const rotationService = {
+    isAdmin: () => true,
+    addMember: (member) => added.push(member),
+  };
+
+  createHandlers({ app, rotationService, logger: console });
+
+  const response = await invoke(app, '/oncall-add', {
+    text: '<@U1> <@U2> <@U3>',
+    userId: 'UADMIN',
+  });
+
+  assert.deepEqual(added.map((member) => member.slackUserId), ['U1', 'U2', 'U3']);
+  assert.match(response.text, /Added 3 users to the rotation/);
+  assert.match(response.text, /<@U1>/);
+  assert.match(response.text, /<@U2>/);
+  assert.match(response.text, /<@U3>/);
+});
+
 test('/oncall-list returns members in order', async () => {
   const app = createFakeApp();
   const rotationService = {
@@ -204,7 +226,7 @@ test('/oncall-add returns usage on unresolved user', async () => {
   createHandlers({ app, rotationService, logger: console });
 
   const response = await invoke(app, '/oncall-add', { text: 'not-a-user', userId: 'UADMIN' });
-  assert.match(response.text, /Usage: \/oncall-add @user/);
+  assert.match(response.text, /Usage: \/oncall-add @user \[@user2 \.\.\.\]/);
 });
 
 test('/oncall-remove returns not-active response when absent', async () => {
