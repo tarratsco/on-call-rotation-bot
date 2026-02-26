@@ -20,9 +20,6 @@ These are the day-to-day commands for participants to view schedule status and h
 - `/oncall-schedule [weeks]` — upcoming rotation (default 6, max 12)
 - `/oncall-list` — active participants in queue order
 - `/oncall-skip [YYYY-MM-DD]` — mark yourself unavailable
-- `/oncall-swap @user [YYYY-MM-DD]` — request a swap for your assigned week
-- `/oncall-swap accept @user [YYYY-MM-DD]` — accept a swap request
-- `/oncall-swap decline @user [YYYY-MM-DD]` — decline a swap request
 - `/oncall-help` — show command list
 
 ## Admin Commands
@@ -32,7 +29,6 @@ These commands are restricted to admins and control roster management, schedulin
 - `/oncall-add @user [@user2 ...]` — add one or more participants to the rotation queue
 - `/oncall-remove @user` — remove/deactivate a participant from the active queue
 - `/oncall-override @user [YYYY-MM-DD]` — force assign on-call for a specific week
-- `/oncall-swap @user1 @user2 [YYYY-MM-DD]` — admin-initiated swap/assignment
 - `/oncall-admin help` — show current config + admin command help
 - `/oncall-set channel #channel` — set reminder destination channel
 - `/oncall-set schedule Monday 09:00 America/New_York` — set reminder cadence

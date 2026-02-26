@@ -18,9 +18,6 @@ The bot manages a weekly on-call rotation in Slack.
 - `/oncall` — Show this week and next week on-call
 - `/oncall-schedule [weeks]` — Show upcoming schedule (default 6, max 12)
 - `/oncall-list` — Show participants and queue order
-- `/oncall-swap @user [YYYY-MM-DD]` — Request a swap for your on-call week
-- `/oncall-swap accept @user [YYYY-MM-DD]` — Accept a swap request
-- `/oncall-swap decline @user [YYYY-MM-DD]` — Decline a swap request
 - `/oncall-skip [YYYY-MM-DD]` — Mark yourself unavailable for a week
 - `/oncall-help` — Show command help
 
@@ -29,7 +26,6 @@ The bot manages a weekly on-call rotation in Slack.
 - `/oncall-add @user [@user2 ...]` — Add one or more participants
 - `/oncall-remove @user` — Remove participant
 - `/oncall-override @user [YYYY-MM-DD]` — Force assign a user for a week
-- `/oncall-swap @user1 @user2 [YYYY-MM-DD]` — Admin swap/assign flow
 - `/oncall-admin help` — Show current config + admin command help
 - `/oncall-set channel #channel` — Set reminder channel
 - `/oncall-set schedule Monday 09:00 America/New_York` — Set reminder schedule
@@ -78,13 +74,6 @@ Admin command notes:
 
 - `/oncall-schedule`
 - `/oncall-schedule 8`
-
-## Request a swap (current on-call user)
-
-1. Request:
-   - `/oncall-swap @teammate 2026-03-02`
-2. Teammate accepts in Slack:
-   - `/oncall-swap accept @yourname 2026-03-02`
 
 ## Mark yourself unavailable
 
@@ -159,7 +148,6 @@ Note: seeded users are not real Slack accounts; the bot shows their display name
 - `/oncall-add @user [@user2 ...]`
 - `/oncall-remove @user`
 - `/oncall-skip [week]`
-- `/oncall-swap ...`
 - `/oncall-override @user [week]`
 - `/oncall-admin help`
 - `/oncall-set channel #channel`

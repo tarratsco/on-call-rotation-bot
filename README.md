@@ -119,7 +119,6 @@ Slash commands are already defined in the manifest file. If you change command n
 - `/oncall-add`
 - `/oncall-remove`
 - `/oncall-list`
-- `/oncall-swap`
 - `/oncall-skip`
 - `/oncall-override`
 - `/oncall-set`
@@ -155,7 +154,7 @@ To fully reset all active participants and schedule state, use:
 
 - `/oncall-reset all confirm`
 
-`clear-schedule` and `clear-queue` keep active participants. `clear-all` deactivates all active participants. All three clear rotation history, overrides, and pending swaps/approvals.
+`/oncall-reset schedule` and `/oncall-reset queue` keep active participants. `/oncall-reset all confirm` deactivates all active participants. All three clear rotation history, overrides, and pending swaps/approvals.
 
 `/oncall-add` supports one or more users in a single command:
 

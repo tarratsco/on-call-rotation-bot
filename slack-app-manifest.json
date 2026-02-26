@@ -46,13 +46,6 @@
         "should_escape": false
       },
       {
-        "command": "/oncall-swap",
-        "url": "https://example.com/slack/commands",
-        "description": "Request or manage on-call swaps",
-        "usage_hint": "@user | @user1 @user2 [YYYY-MM-DD]",
-        "should_escape": false
-      },
-      {
         "command": "/oncall-skip",
         "url": "https://example.com/slack/commands",
         "description": "Mark unavailable for a week",

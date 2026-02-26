@@ -115,8 +115,15 @@ function formatMember(member) {
   return `${mention(member.slack_user_id)} (${displayName})`;
 }
 
+function formatCommandEcho(command) {
+  const cmd = command?.command || '';
+  const args = (command?.text || '').trim();
+  return args ? `*Command:* \`${cmd} ${args}\`` : `*Command:* \`${cmd}\``;
+}
+
 async function sendEphemeral({ respond, client, command, logger, text }) {
-  const payload = { response_type: 'ephemeral', text };
+  const fullText = `${formatCommandEcho(command)}\n\n${text}`;
+  const payload = { response_type: 'ephemeral', text: fullText };
 
   try {
     await respond(payload);
@@ -129,7 +136,7 @@ async function sendEphemeral({ respond, client, command, logger, text }) {
     await client.chat.postEphemeral({
       channel: command.channel_id,
       user: command.user_id,
-      text,
+      text: fullText,
     });
   } catch (error) {
     logger.error(`Fallback ephemeral message failed for ${command.command}: ${error.message}`);
@@ -289,9 +296,6 @@ function createHandlers({ app, rotationService, logger }) {
         '`/oncall-add @user [@user2 ...]` — add participant(s) (admin)',
         '`/oncall-remove @user` — remove participant (admin)',
         '`/oncall-list` — list participants in queue order',
-        '`/oncall-swap @user1 @user2 [week]` — admin swap/assign',
-        '`/oncall-swap @user [week]` — request swap (target confirms via /oncall-swap accept ...)',
-        '`/oncall-swap accept @user [week]` — accept a swap request',
         '`/oncall-skip [week]` or `/oncall-skip @user [week]` — mark unavailable',
         '`/oncall-override @user [week]` — force assign (admin)',
         '`/oncall-admin help` — show admin config/reset help (admin)',
@@ -568,153 +572,6 @@ function createHandlers({ app, rotationService, logger }) {
     });
   });
 
-  app.command('/oncall-swap', async ({ ack, command, respond, client }) => {
-    await ack();
-    const text = (command.text || '').trim();
-
-    const acceptMatch = /^accept\s+<@([A-Z0-9]+)(?:\|[^>]+)?>\s*(\d{4}-\d{2}-\d{2})?$/i.exec(text);
-    if (acceptMatch) {
-      const requesterUserId = acceptMatch[1];
-      let weekStart;
-      try {
-        weekStart = normalizeWeekInput(acceptMatch[2] || weekStartISO(new Date()));
-      } catch (error) {
-        await sendEphemeral({
-          respond,
-          client,
-          command,
-          logger,
-          text: 'Invalid week format. Use YYYY-MM-DD, for example: /oncall-swap accept @user 2026-03-02',
-        });
-        return;
-      }
-      const pending = rotationService.getPendingSwap({ weekStart, requesterUserId, targetUserId: command.user_id });
-      if (!pending) {
-        await sendEphemeral({ respond, client, command, logger, text: 'No matching pending swap found.' });
-        return;
-      }
-
-      const requester = rotationService.getMemberBySlackId(requesterUserId);
-      const target = rotationService.getMemberBySlackId(command.user_id);
-      if (!requester || !target) {
-        await sendEphemeral({ respond, client, command, logger, text: 'Both users must be active participants.' });
-        return;
-      }
-
-      const result = await applyOverrideWithBackToBackGuard({
-        weekStart,
-        target,
-        createdBy: command.user_id,
-        overrideType: 'swap',
-        respond,
-        client,
-        command,
-        successText: `Swap accepted for ${weekStart}. ${mention(command.user_id)} will cover.`,
-        autoApproveUserId: command.user_id,
-      });
-
-      if (result.applied) {
-        rotationService.resolvePendingSwap(pending.id, 'accepted');
-        await client.chat.postMessage({ channel: command.channel_id, text: `Swap confirmed for ${weekStart}: ${mention(requesterUserId)} ↔ ${mention(command.user_id)}.` });
-      }
-      return;
-    }
-
-    const declineMatch = /^decline\s+<@([A-Z0-9]+)(?:\|[^>]+)?>\s*(\d{4}-\d{2}-\d{2})?$/i.exec(text);
-    if (declineMatch) {
-      const requesterUserId = declineMatch[1];
-      let weekStart;
-      try {
-        weekStart = normalizeWeekInput(declineMatch[2] || weekStartISO(new Date()));
-      } catch (error) {
-        await sendEphemeral({
-          respond,
-          client,
-          command,
-          logger,
-          text: 'Invalid week format. Use YYYY-MM-DD, for example: /oncall-swap decline @user 2026-03-02',
-        });
-        return;
-      }
-      const pending = rotationService.getPendingSwap({ weekStart, requesterUserId, targetUserId: command.user_id });
-      if (!pending) {
-        await sendEphemeral({ respond, client, command, logger, text: 'No matching pending swap found.' });
-        return;
-      }
-      rotationService.resolvePendingSwap(pending.id, 'declined');
-      await sendEphemeral({ respond, client, command, logger, text: `Swap declined for ${weekStart}.` });
-      return;
-    }
-
-    const userIds = await parseSlackUserIds(text, client);
-    const weekToken = stripUserTokens(text);
-    let weekStart;
-    try {
-      weekStart = normalizeWeekInput(weekToken || weekStartISO(new Date()));
-    } catch (error) {
-      await sendEphemeral({
-        respond,
-        client,
-        command,
-        logger,
-        text: 'Invalid week format. Use YYYY-MM-DD, for example: /oncall-swap @user 2026-03-02',
-      });
-      return;
-    }
-
-    if (userIds.length === 2) {
-      if (!(await requireAdmin({ userId: command.user_id, respond, client, command }))) {
-        return;
-      }
-      const user1 = rotationService.getMemberBySlackId(userIds[0]);
-      const user2 = rotationService.getMemberBySlackId(userIds[1]);
-      if (!user1 || !user2 || !user1.is_active || !user2.is_active) {
-        await sendEphemeral({ respond, client, command, logger, text: 'Both users must be active participants.' });
-        return;
-      }
-      await applyOverrideWithBackToBackGuard({
-        weekStart,
-        target: user2,
-        createdBy: command.user_id,
-        overrideType: 'swap',
-        respond,
-        client,
-        command,
-        successText: `Admin swap recorded for ${weekStart}: ${mention(userIds[0])} ↔ ${mention(userIds[1])}.`,
-      });
-      return;
-    }
-
-    if (userIds.length === 1) {
-      const currentAssignee = rotationService.getFinalAssignmentForWeek(weekStart);
-      if (!currentAssignee || currentAssignee.slack_user_id !== command.user_id) {
-        await sendEphemeral({ respond, client, command, logger, text: `You can request a swap only for a week where you are on-call (${weekStart}).` });
-        return;
-      }
-
-      const target = rotationService.getMemberBySlackId(userIds[0]);
-      if (!target || !target.is_active) {
-        await sendEphemeral({ respond, client, command, logger, text: 'Target user is not an active participant.' });
-        return;
-      }
-
-      rotationService.createPendingSwap({ weekStart, requesterUserId: command.user_id, targetUserId: userIds[0] });
-      await sendEphemeral({ respond, client, command, logger, text: `Swap request sent to ${mention(userIds[0])} for ${weekStart}.` });
-      await client.chat.postMessage({
-        channel: userIds[0],
-        text: `${mention(command.user_id)} requested a swap for week ${weekStart}. Reply with \`/oncall-swap accept ${mention(command.user_id)} ${weekStart}\` or \`/oncall-swap decline ${mention(command.user_id)} ${weekStart}\` within 24 hours.`,
-      });
-      return;
-    }
-
-    await sendEphemeral({
-      respond,
-      client,
-      command,
-      logger,
-      text: 'Usage: /oncall-swap @user OR /oncall-swap @user1 @user2 [YYYY-MM-DD] OR /oncall-swap accept|decline @user [YYYY-MM-DD]',
-    });
-  });
 
   app.command('/oncall-admin', async ({ ack, command, respond, client }) => {
     await ack();
@@ -786,7 +643,7 @@ function createHandlers({ app, rotationService, logger }) {
         logger,
         text: applyNow
           ? `Rotation order updated and applied now (future schedule state cleared):\n${lines.join('\n')}`
-          : `Rotation order updated:\n${lines.join('\n')}`,
+          : `Rotation order updated:\n${lines.join('\n')}\n\nTo apply this order to upcoming generated weeks immediately, run \`/oncall-set rotation @user1 @user2 ... apply-now\` or \`/oncall-reset schedule\`.`,
       });
       return;
     }
