@@ -51,7 +51,7 @@ Rule: include each active participant exactly once.
 
 ### Clear schedule state but keep users
 
-Use when overrides/skips/swaps/history need reset but participant roster is correct.
+Use when override/history state needs reset but participant roster is correct.
 
 - `/oncall-reset schedule`
 
@@ -67,7 +67,7 @@ Keeps active users, resets queue order, and clears rotation history/overrides/pe
 
 ### Reset test state completely
 
-Use when test overrides/skips/swaps have polluted the current schedule.
+Use when test override/history state has polluted the current schedule.
 
 - `/oncall-reset all confirm`
 

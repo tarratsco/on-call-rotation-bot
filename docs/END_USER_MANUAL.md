@@ -6,7 +6,7 @@ The bot manages a weekly on-call rotation in Slack.
 
 - Assigns who is on-call each week
 - Shows upcoming schedule
-- Supports skips, swaps, and admin overrides
+- Supports admin overrides
 - Sends weekly reminder messages to a configured channel
 
 ---

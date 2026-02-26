@@ -63,7 +63,7 @@ function createRuntime(options = {}) {
     if (!thisAssignee && !nextAssignee) {
       await app.client.chat.postMessage({
         channel: config.reminder_channel,
-        text: ':warning: On-call reminder could not assign anyone this week. Please resolve skips/overrides.',
+        text: ':warning: On-call reminder could not assign anyone this week. Please resolve coverage assignment.',
       });
 
       const admins = rotationService.getAdmins();

@@ -194,13 +194,6 @@ class RotationService {
     return this.db.prepare('SELECT * FROM schedule_overrides WHERE week_start = ? ORDER BY created_at DESC').all(weekStart);
   }
 
-  isMemberSkipped(weekStart, memberId) {
-    const row = this.db
-      .prepare("SELECT id FROM schedule_overrides WHERE week_start = ? AND member_id = ? AND override_type = 'skip' ORDER BY created_at DESC LIMIT 1")
-      .get(weekStart, memberId);
-    return Boolean(row);
-  }
-
   getExplicitAssignedMemberId(weekStart) {
     const row = this.db
       .prepare("SELECT member_id FROM schedule_overrides WHERE week_start = ? AND override_type IN ('swap', 'override') ORDER BY created_at DESC LIMIT 1")
@@ -230,10 +223,6 @@ class RotationService {
 
     let selected = null;
     for (const member of members) {
-      const skipped = this.isMemberSkipped(weekStart, member.id);
-      if (skipped) {
-        continue;
-      }
       if (members.length > 1 && previousMemberId && member.id === previousMemberId) {
         continue;
       }
@@ -274,15 +263,6 @@ class RotationService {
       result.push({ weekStart, member: assigned });
     }
     return result;
-  }
-
-  setSkip({ weekStart, memberId, createdBy }) {
-    this.db
-      .prepare('INSERT INTO schedule_overrides(id, week_start, member_id, override_type, created_by, created_at, details) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .run(uuidv4(), weekStart, memberId, 'skip', createdBy, new Date().toISOString(), null);
-
-    this.db.prepare('DELETE FROM rotation_history WHERE week_start = ?').run(weekStart);
-    return this.getFinalAssignmentForWeek(weekStart);
   }
 
   setOverride({ weekStart, memberId, createdBy, type = 'override' }) {

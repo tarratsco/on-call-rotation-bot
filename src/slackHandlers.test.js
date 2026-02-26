@@ -32,7 +32,6 @@ function createRotationServiceStub(overrides = {}) {
     getMemberBySlackId: () => null,
     getFinalAssignmentForWeek: () => null,
     getUpcomingSchedule: () => [],
-    setSkip: () => null,
     setOverride: () => {},
     createPendingSwap: () => 'pending-id',
     getPendingSwap: () => null,

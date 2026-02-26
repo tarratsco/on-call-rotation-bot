@@ -72,17 +72,6 @@ test('getUpcomingSchedule creates fair round-robin assignments', () => {
   cleanup();
 });
 
-test('setSkip assigns fallback for skipped user', () => {
-  const { service, cleanup } = createService();
-  const u1 = service.addMember({ slackUserId: 'U1', displayName: 'One' });
-  service.addMember({ slackUserId: 'U2', displayName: 'Two' });
-
-  const fallback = service.setSkip({ weekStart: '2026-02-16', memberId: u1.id, createdBy: 'U1' });
-  assert.equal(fallback.slack_user_id, 'U2');
-
-  cleanup();
-});
-
 test('setOverride and pending swaps are persisted', () => {
   const { service, cleanup } = createService();
   const u1 = service.addMember({ slackUserId: 'U1', displayName: 'One' });
@@ -125,19 +114,6 @@ test('single-member team always gets assigned', () => {
     schedule.map((entry) => entry.member?.slack_user_id),
     ['USOLO', 'USOLO', 'USOLO']
   );
-
-  cleanup();
-});
-
-test('all skipped in a week returns no assignment', () => {
-  const { service, cleanup } = createService();
-  const u1 = service.addMember({ slackUserId: 'U1', displayName: 'One' });
-  const u2 = service.addMember({ slackUserId: 'U2', displayName: 'Two' });
-
-  service.setSkip({ weekStart: '2026-02-16', memberId: u1.id, createdBy: 'U1' });
-  const fallback = service.setSkip({ weekStart: '2026-02-16', memberId: u2.id, createdBy: 'U2' });
-  assert.equal(fallback, null);
-  assert.equal(service.getFinalAssignmentForWeek('2026-02-16'), null);
 
   cleanup();
 });
@@ -190,7 +166,7 @@ test('clearScheduleState clears scheduling tables but keeps active members', () 
   const u2 = service.addMember({ slackUserId: 'U2', displayName: 'Two' });
 
   service.getFinalAssignmentForWeek('2026-02-16');
-  service.setSkip({ weekStart: '2026-02-23', memberId: u1.id, createdBy: 'U1' });
+  service.setOverride({ weekStart: '2026-02-23', memberId: u1.id, createdBy: 'U1' });
   service.createPendingSwap({ weekStart: '2026-02-23', requesterUserId: 'U1', targetUserId: 'U2' });
   service.createBackToBackApproval({
     weekStart: '2026-03-02',
@@ -223,7 +199,7 @@ test('clearQueueKeepUsers keeps users active, resets queue order, and clears sch
   service.addMember({ slackUserId: 'U3', displayName: 'Three' });
 
   service.setQueueOrderBySlackIds(['U3', 'U2', 'U1']);
-  service.setSkip({ weekStart: '2026-02-23', memberId: u1.id, createdBy: 'U1' });
+  service.setOverride({ weekStart: '2026-02-23', memberId: u1.id, createdBy: 'U1' });
   service.createPendingSwap({ weekStart: '2026-02-23', requesterUserId: 'U1', targetUserId: 'U2' });
 
   const result = service.clearQueueKeepUsers();
@@ -243,7 +219,7 @@ test('clearAllData deactivates users and clears scheduling state', () => {
   const u1 = service.addMember({ slackUserId: 'U1', displayName: 'One' });
   service.addMember({ slackUserId: 'U2', displayName: 'Two' });
 
-  service.setSkip({ weekStart: '2026-02-23', memberId: u1.id, createdBy: 'U1' });
+  service.setOverride({ weekStart: '2026-02-23', memberId: u1.id, createdBy: 'U1' });
   const result = service.clearAllData();
 
   assert.equal(result.deactivatedMembers, 2);
