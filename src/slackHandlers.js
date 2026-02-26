@@ -296,7 +296,6 @@ function createHandlers({ app, rotationService, logger }) {
         '`/oncall-add @user [@user2 ...]` — add participant(s) (admin)',
         '`/oncall-remove @user` — remove participant (admin)',
         '`/oncall-list` — list participants in queue order',
-        '`/oncall-skip [week]` or `/oncall-skip @user [week]` — mark unavailable',
         '`/oncall-override @user [week]` — force assign (admin)',
         '`/oncall-admin help` — show admin config/reset help (admin)',
         '`/oncall-set channel|schedule|rotation ...` — set config/rotation (admin)',
@@ -518,57 +517,6 @@ function createHandlers({ app, rotationService, logger }) {
       client,
       command,
       successText: `Override set for ${weekStart}: ${mention(userIds[0])}.`,
-    });
-  });
-
-  app.command('/oncall-skip', async ({ ack, command, respond, client }) => {
-    await ack();
-
-    const userIds = await parseSlackUserIds(command.text || '', client);
-    const isAdmin = rotationService.isAdmin(command.user_id);
-    let targetUserId = command.user_id;
-    let weekText = command.text || '';
-
-    if (userIds.length >= 1) {
-      if (!isAdmin && userIds[0] !== command.user_id) {
-        await sendEphemeral({ respond, client, command, logger, text: 'Only admins can skip other users.' });
-        return;
-      }
-      targetUserId = userIds[0];
-      weekText = stripUserTokens(weekText);
-    }
-
-    const target = rotationService.getMemberBySlackId(targetUserId);
-    if (!target || !target.is_active) {
-      await sendEphemeral({ respond, client, command, logger, text: 'Target user is not an active participant.' });
-      return;
-    }
-
-    let weekStart;
-    try {
-      weekStart = normalizeWeekInput(weekText || weekStartISO(new Date()));
-    } catch (error) {
-      await sendEphemeral({
-        respond,
-        client,
-        command,
-        logger,
-        text: 'Invalid week format. Use YYYY-MM-DD, for example: /oncall-skip 2026-03-02',
-      });
-      return;
-    }
-    const fallback = rotationService.setSkip({ weekStart, memberId: target.id, createdBy: command.user_id });
-    if (!fallback) {
-      await sendEphemeral({ respond, client, command, logger, text: `Everyone is unavailable for ${weekStart}. No assignment could be made.` });
-      return;
-    }
-
-    await sendEphemeral({
-      respond,
-      client,
-      command,
-      logger,
-      text: `${mention(targetUserId)} marked unavailable for ${weekStart}. Covering on-call: ${mention(fallback.slack_user_id)}.`,
     });
   });
 

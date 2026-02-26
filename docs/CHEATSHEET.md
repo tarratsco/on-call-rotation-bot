@@ -19,7 +19,6 @@ These are the day-to-day commands for participants to view schedule status and h
 - `/oncall` — show this week + next week assignee
 - `/oncall-schedule [weeks]` — upcoming rotation (default 6, max 12)
 - `/oncall-list` — active participants in queue order
-- `/oncall-skip [YYYY-MM-DD]` — mark yourself unavailable
 - `/oncall-help` — show command list
 
 ## Admin Commands

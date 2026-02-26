@@ -84,7 +84,7 @@ function createRuntime(options = {}) {
         `This week (${thisWeek}): ${thisAssignee ? `<@${thisAssignee.slack_user_id}>` : '_unassigned_'}`,
         `Next week (${nextWeek}): ${nextAssignee ? `<@${nextAssignee.slack_user_id}>` : '_unassigned_'}`,
         '',
-        'Use /oncall-override (admin) to reassign coverage. Use /oncall-skip to mark yourself unavailable.',
+        'Use /oncall-override (admin) to reassign coverage.',
       ].join('\n'),
     });
   }

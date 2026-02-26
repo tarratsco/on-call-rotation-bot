@@ -257,36 +257,6 @@ test('/oncall-schedule clamps invalid week counts', async () => {
   assert.deepEqual(seen, [12, 1]);
 });
 
-test('/oncall-skip blocks non-admin skipping another user', async () => {
-  const app = createFakeApp();
-  const rotationService = createRotationServiceStub({
-    isAdmin: () => false,
-  });
-  createHandlers({ app, rotationService, logger: console });
-
-  const response = await invoke(app, '/oncall-skip', {
-    text: '<@U2>',
-    userId: 'U1',
-  });
-  assert.match(response.text, /Only admins can skip other users/);
-});
-
-test('/oncall-skip reports all unavailable when fallback missing', async () => {
-  const app = createFakeApp();
-  const rotationService = createRotationServiceStub({
-    isAdmin: () => true,
-    getMemberBySlackId: () => ({ id: 'MID1', is_active: 1 }),
-    setSkip: () => null,
-  });
-  createHandlers({ app, rotationService, logger: console });
-
-  const response = await invoke(app, '/oncall-skip', {
-    text: '<@U2> 2026-02-16',
-    userId: 'UADMIN',
-  });
-  assert.match(response.text, /Everyone is unavailable/);
-});
-
 test('/oncall-set requires admin and validates channel input', async () => {
   const app = createFakeApp();
   const setCalls = [];

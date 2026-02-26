@@ -35,45 +35,41 @@ Run in Slack:
 
 Run in Slack:
 
-4. `/oncall-skip 2026-02-24`
-   - Expect skip confirmation with fallback user, or all-unavailable warning
-5. `/oncall-override @onix.tarratscalderon 2026-03-02`
+4. `/oncall-override @onix.tarratscalderon 2026-03-02`
    - Expect admin override confirmation
 
 ## 4) Config checks
 
 Run in Slack:
 
-6. `/oncall-admin help`
+5. `/oncall-admin help`
    - Expect current config values and available subcommands
    - Expect `reminder_channel` to render as a channel mention (`<#...>`)
-7. `/oncall-set channel #social`
+6. `/oncall-set channel #social`
    - Run this command in `#social`
    - Expect reminder channel confirmation
-8. `/oncall-set schedule Monday 09:00 America/New_York`
+7. `/oncall-set schedule Monday 09:00 America/New_York`
    - Expect schedule update confirmation
-9. `/oncall-reset schedule`
+8. `/oncall-reset schedule`
    - Expect schedule-state reset confirmation and active users kept
-10. `/oncall-set rotation @user1 @user2 @user3`
+9. `/oncall-set rotation @user1 @user2 @user3`
    - Expect queue reorder confirmation
-11. `/oncall-reset queue`
+10. `/oncall-reset queue`
    - Expect queue reset + schedule-state reset confirmation and active users kept
-12. `/oncall-reset all confirm`
+11. `/oncall-reset all confirm`
    - Expect full reset confirmation with active users deactivated
-13. `/oncall-help`
+12. `/oncall-help`
    - Expect command summary list
 
 ## 5) Negative checks
 
 Run in Slack:
 
-14. `/oncall-add not-a-user`
+13. `/oncall-add not-a-user`
    - Expect usage guidance
-15. `/oncall-schedule 999`
+14. `/oncall-schedule 999`
    - Expect clamp to max weeks (12)
-16. `/oncall-skip @someoneelse 2026-03-02`
-   - As non-admin, expect rejection
-17. `/oncall-set channel #different-channel`
+15. `/oncall-set channel #different-channel`
    - If run outside that channel, expect usage guidance
 
 ## 6) Cleanup temporary participants

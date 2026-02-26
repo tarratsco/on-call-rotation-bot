@@ -119,7 +119,6 @@ Slash commands are already defined in the manifest file. If you change command n
 - `/oncall-add`
 - `/oncall-remove`
 - `/oncall-list`
-- `/oncall-skip`
 - `/oncall-override`
 - `/oncall-set`
 - `/oncall-reset`

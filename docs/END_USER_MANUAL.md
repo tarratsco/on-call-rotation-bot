@@ -18,7 +18,6 @@ The bot manages a weekly on-call rotation in Slack.
 - `/oncall` — Show this week and next week on-call
 - `/oncall-schedule [weeks]` — Show upcoming schedule (default 6, max 12)
 - `/oncall-list` — Show participants and queue order
-- `/oncall-skip [YYYY-MM-DD]` — Mark yourself unavailable for a week
 - `/oncall-help` — Show command help
 
 ### Admin only
@@ -74,13 +73,6 @@ Admin command notes:
 
 - `/oncall-schedule`
 - `/oncall-schedule 8`
-
-## Mark yourself unavailable
-
-- `/oncall-skip`
-- `/oncall-skip 2026-03-09`
-
----
 
 ## 5) Testing without real extra Slack users
 
@@ -147,7 +139,6 @@ Note: seeded users are not real Slack accounts; the bot shows their display name
 - `/oncall-add @user`
 - `/oncall-add @user [@user2 ...]`
 - `/oncall-remove @user`
-- `/oncall-skip [week]`
 - `/oncall-override @user [week]`
 - `/oncall-admin help`
 - `/oncall-set channel #channel`

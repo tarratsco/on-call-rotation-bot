@@ -46,13 +46,6 @@
         "should_escape": false
       },
       {
-        "command": "/oncall-skip",
-        "url": "https://example.com/slack/commands",
-        "description": "Mark unavailable for a week",
-        "usage_hint": "[@user] [YYYY-MM-DD]",
-        "should_escape": false
-      },
-      {
         "command": "/oncall-override",
         "url": "https://example.com/slack/commands",
         "description": "Force-assign on-call for a week (admin)",
