@@ -112,7 +112,7 @@ TEST_USER_PREFIX=UDEMO npm run cleanup:test-users
 
 ## Slack Slash Commands
 
-Slash commands are already defined in the manifest file. If you change command names later, update [slack-app-manifest.yml](slack-app-manifest.yml) and re-apply the manifest.
+Slash commands are already defined in the manifest file. If you change command names later, update [slack-app-manifest.yml](slack-app-manifest.yml), run `npm run sync:manifest` to update [slack-app-manifest.json](slack-app-manifest.json), and re-apply the manifest in Slack.
 
 - `/oncall`
 - `/oncall-schedule`

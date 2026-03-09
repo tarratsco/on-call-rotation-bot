@@ -8,6 +8,7 @@
     "start": "node src/index.js",
     "dev": "NODE_ENV=development node src/index.js",
     "test": "node --test src/**/*.test.js",
+    "sync:manifest": "node scripts/sync-manifest.js",
     "seed:test-users": "node scripts/seed-test-users.js",
     "cleanup:test-users": "node scripts/cleanup-test-users.js",
     "lint": "echo 'No linter configured yet'"
@@ -20,6 +21,7 @@
     "dotenv": "^16.4.7",
     "node-cron": "^3.0.3",
     "@slack/bolt": "^4.2.1",
+    "yaml": "^2.8.1",
     "uuid": "^11.1.0"
   }
 }
