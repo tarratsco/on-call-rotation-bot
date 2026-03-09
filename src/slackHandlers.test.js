@@ -277,11 +277,19 @@ test('/oncall-set requires admin and validates channel input', async () => {
 test('/oncall-set updates channel and schedule values', async () => {
   const app = createFakeApp();
   const setCalls = [];
+  let schedulerReloaded = 0;
   const rotationService = createRotationServiceStub({
     isAdmin: () => true,
     setConfig: (key, value) => setCalls.push({ key, value }),
   });
-  createHandlers({ app, rotationService, logger: console });
+  createHandlers({
+    app,
+    rotationService,
+    logger: console,
+    onScheduleConfigChanged: async () => {
+      schedulerReloaded += 1;
+    },
+  });
 
   const channelResponse = await invoke(app, '/oncall-set', {
     text: 'channel <#COPS|ops>',
@@ -294,6 +302,8 @@ test('/oncall-set updates channel and schedule values', async () => {
     userId: 'UADMIN',
   });
   assert.match(scheduleResponse.text, /Reminder schedule updated/);
+  assert.match(scheduleResponse.text, /Scheduler reloaded/);
+  assert.equal(schedulerReloaded, 1);
   assert.deepEqual(setCalls, [
     { key: 'reminder_channel', value: 'COPS' },
     { key: 'reminder_day', value: 'Monday' },

@@ -170,5 +170,5 @@ Channel input notes:
 - Participants are manually managed (no auto-sync from channel members).
 - Queue order is preserved across swaps/overrides; explicit week assignment is stored separately.
 - If no assignee can be determined for a week, the reminder posts a warning and admins are DM’d.
-- Config updates via `/oncall-set schedule ...` require process restart to reload cron settings.
+- Config updates via `/oncall-set schedule ...` reload the reminder scheduler immediately.
 - The command URLs in the manifest are placeholders for Socket Mode and are not used by this local MVP runtime.

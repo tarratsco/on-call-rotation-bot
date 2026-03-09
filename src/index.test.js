@@ -136,6 +136,7 @@ test('createRuntime wires services, handlers, and scheduler', () => {
     assert.equal(scheduleCalls.length, 1);
     assert.equal(scheduleCalls[0].cronExpr, '30 08 * * 2');
     assert.equal(scheduleCalls[0].options.timezone, 'UTC');
+    assert.equal(typeof handlerCalls[0].onScheduleConfigChanged, 'function');
   });
 });
 

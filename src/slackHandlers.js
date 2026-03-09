@@ -149,7 +149,7 @@ function formatSchedule(schedule) {
     .join('\n');
 }
 
-function createHandlers({ app, rotationService, logger }) {
+function createHandlers({ app, rotationService, logger, onScheduleConfigChanged }) {
   function isApprovalSatisfied(approval) {
     return Boolean(approval && approval.user_approved_by && approval.admin_approved_by);
   }
@@ -620,12 +620,24 @@ function createHandlers({ app, rotationService, logger }) {
       rotationService.setConfig('reminder_day', day);
       rotationService.setConfig('reminder_time', time);
       rotationService.setConfig('reminder_timezone', timezone);
+
+      let scheduleMessage = `Reminder schedule updated: ${day} ${time} ${timezone}.`;
+      if (typeof onScheduleConfigChanged === 'function') {
+        try {
+          await onScheduleConfigChanged({ day, time, timezone });
+          scheduleMessage = `${scheduleMessage} Scheduler reloaded.`;
+        } catch (error) {
+          logger.error(`Failed to reload scheduler after schedule update: ${error.message}`);
+          scheduleMessage = `${scheduleMessage} Failed to reload scheduler automatically. Restart bot to apply scheduler changes.`;
+        }
+      }
+
       await sendEphemeral({
         respond,
         client,
         command,
         logger,
-        text: `Reminder schedule updated: ${day} ${time} ${timezone}. Restart bot to apply scheduler changes.`,
+        text: scheduleMessage,
       });
       return;
     }

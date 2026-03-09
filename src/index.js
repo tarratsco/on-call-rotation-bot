@@ -45,7 +45,21 @@ function createRuntime(options = {}) {
     logger.error('Bolt app error:', error);
   });
 
-  createHandlersFn({ app, rotationService, logger });
+  let scheduledReminderTask = null;
+
+  function stopScheduledReminderTask() {
+    if (!scheduledReminderTask) {
+      return;
+    }
+
+    if (typeof scheduledReminderTask.stop === 'function') {
+      scheduledReminderTask.stop();
+    }
+    if (typeof scheduledReminderTask.destroy === 'function') {
+      scheduledReminderTask.destroy();
+    }
+    scheduledReminderTask = null;
+  }
 
   async function postWeeklyReminder() {
     const config = rotationService.getConfig();
@@ -90,10 +104,12 @@ function createRuntime(options = {}) {
   }
 
   function scheduleWeeklyReminder() {
+    stopScheduledReminderTask();
+
     const config = rotationService.getConfig();
     const parsed = parseReminderConfig(config.reminder_day, config.reminder_time);
 
-    cronLib.schedule(
+    scheduledReminderTask = cronLib.schedule(
       parsed.cron,
       async () => {
         try {
@@ -107,6 +123,15 @@ function createRuntime(options = {}) {
 
     logger.info(`Reminder scheduler active: ${parsed.day} ${parsed.time} ${config.reminder_timezone}`);
   }
+
+  createHandlersFn({
+    app,
+    rotationService,
+    logger,
+    onScheduleConfigChanged: async () => {
+      scheduleWeeklyReminder();
+    },
+  });
 
   async function sendMissedReminderIfNeeded() {
     const config = rotationService.getConfig();
