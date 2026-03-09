@@ -370,7 +370,6 @@ test('/oncall-admin help includes current config and admin commands', async () =
   assert.match(response.text, /\*Admin commands\*/);
   assert.match(response.text, /\/oncall-set rotation @user1 @user2/);
   assert.match(response.text, /\/oncall-reset schedule/);
-  assert.match(response.text, /\/oncall-reset queue/);
   assert.match(response.text, /\/oncall-reset all confirm/);
 });
 
@@ -459,11 +458,10 @@ test('/oncall-reset schedule keeps users and clears schedule state', async () =>
   assert.match(response.text, /Active participants were kept/);
 });
 
-test('/oncall-reset queue keeps users and resets queue\/schedule state', async () => {
+test('/oncall-reset queue is no longer supported', async () => {
   const app = createFakeApp();
   const rotationService = createRotationServiceStub({
     isAdmin: () => true,
-    clearQueueKeepUsers: () => ({ activeMembers: 4 }),
   });
   createHandlers({ app, rotationService, logger: console });
 
@@ -472,9 +470,7 @@ test('/oncall-reset queue keeps users and resets queue\/schedule state', async (
     userId: 'UADMIN',
   });
 
-  assert.match(response.text, /Queue reset complete/);
-  assert.match(response.text, /Kept 4 active participant/);
-  assert.match(response.text, /cleared rotation history\/overrides\/pending swaps\/approvals/);
+  assert.match(response.text, /Usage: \/oncall-reset schedule OR \/oncall-reset all confirm/);
 });
 
 test('/oncall-reset all requires explicit confirm', async () => {

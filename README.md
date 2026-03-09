@@ -65,7 +65,6 @@ The manifest preconfigures:
    - `/oncall-set schedule Monday 09:00 America/New_York`
    - `/oncall-set rotation @user1 @user2 @user3`
    - `/oncall-reset schedule`
-   - `/oncall-reset queue`
    - `/oncall-reset all confirm`
    - `/oncall-add @user1 @user2 @user3`
 
@@ -132,7 +131,6 @@ Admin configuration commands:
 - `/oncall-set schedule Monday 09:00 America/New_York` — set reminder schedule
 - `/oncall-set rotation @user1 @user2 ... [apply-now]` — set queue order (optionally apply immediately)
 - `/oncall-reset schedule` — clear schedule state only (keep active users)
-- `/oncall-reset queue` — reset queue order + clear schedule state (keep active users)
 - `/oncall-reset all confirm` — deactivate all active users + clear schedule state
 
 To manually set starting queue order, use:
@@ -145,15 +143,11 @@ To reset schedule state while keeping users, use:
 
 - `/oncall-reset schedule`
 
-To reset queue order + schedule state while keeping users, use:
-
-- `/oncall-reset queue`
-
 To fully reset all active participants and schedule state, use:
 
 - `/oncall-reset all confirm`
 
-`/oncall-reset schedule` and `/oncall-reset queue` keep active participants. `/oncall-reset all confirm` deactivates all active participants. All three clear rotation history, overrides, and pending swaps/approvals.
+`/oncall-reset schedule` keeps active participants. `/oncall-reset all confirm` deactivates all active participants. Both clear rotation history, overrides, and pending swaps/approvals.
 
 `/oncall-add` supports one or more users in a single command:
 

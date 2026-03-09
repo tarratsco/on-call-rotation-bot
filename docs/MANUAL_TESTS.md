@@ -49,27 +49,25 @@ Run in Slack:
    - Run this command in `#social`
    - Expect reminder channel confirmation
 7. `/oncall-set schedule Monday 09:00 America/New_York`
-   - Expect schedule update confirmation
+   - Expect schedule update confirmation with scheduler reload (no restart needed)
 8. `/oncall-reset schedule`
    - Expect schedule-state reset confirmation and active users kept
 9. `/oncall-set rotation @user1 @user2 @user3`
    - Expect queue reorder confirmation
-10. `/oncall-reset queue`
-   - Expect queue reset + schedule-state reset confirmation and active users kept
-11. `/oncall-reset all confirm`
+10. `/oncall-reset all confirm`
    - Expect full reset confirmation with active users deactivated
-12. `/oncall-help`
+11. `/oncall-help`
    - Expect command summary list
 
 ## 5) Negative checks
 
 Run in Slack:
 
-13. `/oncall-add not-a-user`
+12. `/oncall-add not-a-user`
    - Expect usage guidance
-14. `/oncall-schedule 999`
+13. `/oncall-schedule 999`
    - Expect clamp to max weeks (12)
-15. `/oncall-set channel #different-channel`
+14. `/oncall-set channel #different-channel`
    - If run outside that channel, expect usage guidance
 
 ## 6) Cleanup temporary participants

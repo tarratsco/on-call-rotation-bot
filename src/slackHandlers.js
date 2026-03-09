@@ -276,7 +276,6 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
         '- `/oncall-set schedule Monday 09:00 America/New_York`',
         '- `/oncall-set rotation @user1 @user2 ... [apply-now]`',
         '- `/oncall-reset schedule`',
-        '- `/oncall-reset queue`',
         '- `/oncall-reset all confirm`',
       ].join('\n'),
     });
@@ -299,7 +298,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
         '`/oncall-override @user [week]` — force assign (admin)',
         '`/oncall-admin help` — show admin config/reset help (admin)',
         '`/oncall-set channel|schedule|rotation ...` — set config/rotation (admin)',
-        '`/oncall-reset schedule|queue|all confirm` — reset state (admin)',
+        '`/oncall-reset schedule|all confirm` — reset state (admin)',
       ].join('\n'),
     });
   });
@@ -664,7 +663,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
         client,
         command,
         logger,
-        text: 'Usage: /oncall-reset schedule OR /oncall-reset queue OR /oncall-reset all confirm',
+        text: 'Usage: /oncall-reset schedule OR /oncall-reset all confirm',
       });
       return;
     }
@@ -677,18 +676,6 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
         command,
         logger,
         text: 'Schedule state cleared. Active participants were kept. Cleared rotation history, overrides, pending swaps, and pending approvals.',
-      });
-      return;
-    }
-
-    if (text === 'queue') {
-      const result = rotationService.clearQueueKeepUsers();
-      await sendEphemeral({
-        respond,
-        client,
-        command,
-        logger,
-        text: `Queue reset complete. Kept ${result.activeMembers} active participant(s), reset queue order, and cleared rotation history/overrides/pending swaps/approvals.`,
       });
       return;
     }
@@ -721,7 +708,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
       client,
       command,
       logger,
-      text: 'Usage: /oncall-reset schedule OR /oncall-reset queue OR /oncall-reset all confirm',
+      text: 'Usage: /oncall-reset schedule OR /oncall-reset all confirm',
     });
   });
 }

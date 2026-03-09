@@ -44,8 +44,8 @@ features:
       should_escape: false
     - command: /oncall-reset
       url: https://example.com/slack/commands
-      description: Reset on-call schedule/queue state (admin)
-      usage_hint: "schedule | queue | all confirm"
+      description: Reset on-call schedule state or all participants (admin)
+      usage_hint: "schedule | all confirm"
       should_escape: false
     - command: /oncall-admin
       url: https://example.com/slack/commands

@@ -30,10 +30,9 @@ These commands are restricted to admins and control roster management, schedulin
 - `/oncall-override @user [YYYY-MM-DD]` — force assign on-call for a specific week
 - `/oncall-admin help` — show current config + admin command help
 - `/oncall-set channel #channel` — set reminder destination channel
-- `/oncall-set schedule Monday 09:00 America/New_York` — set reminder cadence
+- `/oncall-set schedule Monday 09:00 America/New_York` — set reminder cadence (applies immediately)
 - `/oncall-set rotation @user1 @user2 ... [apply-now]` — set manual queue order
 - `/oncall-reset schedule` — clear schedule state only (keep active users)
-- `/oncall-reset queue` — reset queue order + clear schedule state (keep active users)
 - `/oncall-reset all confirm` — deactivate all active users + clear schedule state
 
 ## Common Recovery Flows
@@ -56,14 +55,6 @@ Use when override/history state needs reset but participant roster is correct.
 - `/oncall-reset schedule`
 
 Clears rotation history, overrides, pending swaps, and pending approvals.
-
-### Reset queue + schedule state (keep users)
-
-Use when you want a clean queue baseline and clean schedule state, without removing participants.
-
-- `/oncall-reset queue`
-
-Keeps active users, resets queue order, and clears rotation history/overrides/pending swaps/approvals.
 
 ### Reset test state completely
 

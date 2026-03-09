@@ -30,7 +30,6 @@ The bot manages a weekly on-call rotation in Slack.
 - `/oncall-set schedule Monday 09:00 America/New_York` — Set reminder schedule
 - `/oncall-set rotation @user1 @user2 ... [apply-now]` — Manually set queue order (optional immediate apply)
 - `/oncall-reset schedule` — Clear schedule state (keep active participants)
-- `/oncall-reset queue` — Reset queue order + schedule state (keep active participants)
 - `/oncall-reset all confirm` — Deactivate all active participants + clear schedule state
 
 Admin command notes:
@@ -54,11 +53,9 @@ Admin command notes:
    - `/oncall-set schedule Monday 09:00 America/New_York`
 5. (Optional) Clear schedule state after testing while keeping users:
    - `/oncall-reset schedule`
-6. (Optional) Reset queue order + schedule state while keeping users:
-   - `/oncall-reset queue`
-7. (Optional) Full destructive reset (deactivates all active users):
+6. (Optional) Full destructive reset (deactivates all active users):
    - `/oncall-reset all confirm`
-8. Verify config/help output:
+7. Verify config/help output:
    - `/oncall-admin help`
 
 ---
@@ -127,7 +124,7 @@ Note: seeded users are not real Slack accounts; the bot shows their display name
 
 - Verify reminder channel: `/oncall-set channel #on-call`
 - Verify schedule config: `/oncall-set schedule Monday 09:00 America/New_York`
-- Restart bot after schedule changes
+- Schedule changes apply immediately; no restart required
 
 ---
 
@@ -145,6 +142,5 @@ Note: seeded users are not real Slack accounts; the bot shows their display name
 - `/oncall-set schedule Monday 09:00 America/New_York`
 - `/oncall-set rotation @user1 @user2 ... [apply-now]`
 - `/oncall-reset schedule`
-- `/oncall-reset queue`
 - `/oncall-reset all confirm`
 - `/oncall-help`
