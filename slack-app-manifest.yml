@@ -44,7 +44,7 @@ features:
       should_escape: false
     - command: /oncall-reset
       url: https://example.com/slack/commands
-      description: Reset on-call schedule state or all participants (admin)
+      description: Clear schedule state or deactivate all participants (admin)
       usage_hint: "schedule | all confirm"
       should_escape: false
     - command: /oncall-admin
