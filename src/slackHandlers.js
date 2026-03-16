@@ -675,7 +675,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
         client,
         command,
         logger,
-        text: 'Schedule state cleared. Active participants were kept. Cleared rotation history, overrides, pending swaps, and pending approvals.',
+        text: 'Schedule state cleared. Active participants were kept. Cleared prior assignment state.',
       });
       return;
     }
@@ -698,7 +698,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
         client,
         command,
         logger,
-        text: `Full reset complete. Deactivated ${result.deactivatedMembers} active participant(s) and cleared rotation history/overrides/pending swaps/approvals.`,
+        text: `Full reset complete. Deactivated ${result.deactivatedMembers} active participant(s) and cleared prior assignment state.`,
       });
       return;
     }

@@ -147,7 +147,7 @@ To fully reset all active participants and schedule state, use:
 
 - `/oncall-reset all confirm`
 
-`/oncall-reset schedule` keeps active participants. `/oncall-reset all confirm` deactivates all active participants. Both clear rotation history, overrides, and pending swaps/approvals.
+`/oncall-reset schedule` keeps active participants. `/oncall-reset all confirm` deactivates all active participants. Both clear prior assignment state.
 
 `/oncall-add` supports one or more users in a single command:
 
@@ -162,7 +162,7 @@ Channel input notes:
 ## Notes
 
 - Participants are manually managed (no auto-sync from channel members).
-- Queue order is preserved across swaps/overrides; explicit week assignment is stored separately.
+- Queue order is preserved across manual assignments; explicit week assignment is stored separately.
 - If no assignee can be determined for a week, the reminder posts a warning and admins are DM’d.
 - Config updates via `/oncall-set schedule ...` reload the reminder scheduler immediately.
 - The command URLs in the manifest are placeholders for Socket Mode and are not used by this local MVP runtime.

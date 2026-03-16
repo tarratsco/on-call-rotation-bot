@@ -506,7 +506,7 @@ test('/oncall-reset all confirm deactivates users and clears schedule state', as
 
   assert.match(response.text, /Full reset complete/);
   assert.match(response.text, /Deactivated 4 active participant/);
-  assert.match(response.text, /cleared rotation history\/overrides\/pending swaps\/approvals/);
+  assert.match(response.text, /cleared prior assignment state/);
 });
 
 test('/oncall-override accepts plain @handle with valid date', async () => {

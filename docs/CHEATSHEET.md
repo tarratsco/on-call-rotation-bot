@@ -54,7 +54,7 @@ Use when override/history state needs reset but participant roster is correct.
 
 - `/oncall-reset schedule`
 
-Clears rotation history, overrides, pending swaps, and pending approvals.
+Clears prior assignment state.
 
 ### Reset test state completely
 
@@ -62,7 +62,7 @@ Use when test override/history state has polluted the current schedule.
 
 - `/oncall-reset all confirm`
 
-This deactivates all active participants and clears rotation history, overrides, pending swaps, and pending approvals.
+This deactivates all active participants and clears prior assignment state.
 
 ### Set reminder channel
 
