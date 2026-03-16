@@ -575,6 +575,7 @@ class RotationService {
   }
 
   createBackToBackApproval({ weekStart, memberId, memberSlackUserId, overrideType, requestedBy }) {
+    // Reuse an open approval so repeated command retries do not create duplicate approval threads.
     const existing = this.db
       .prepare("SELECT * FROM pending_back_to_back_approvals WHERE week_start = ? AND member_id = ? AND override_type = ? AND status = 'pending' ORDER BY created_at DESC LIMIT 1")
       .get(weekStart, memberId, overrideType);
@@ -604,6 +605,7 @@ class RotationService {
       return approval;
     }
 
+    // Target user and admin approvals are tracked independently because either side may approve first.
     if (isTargetUser) {
       this.db.prepare('UPDATE pending_back_to_back_approvals SET user_approved_by = ? WHERE id = ?').run(approverUserId, id);
     }
@@ -615,12 +617,14 @@ class RotationService {
   }
 
   markBackToBackApproved(id) {
+    // Mark final state only after handlers verify required approvals are present.
     this.db
       .prepare("UPDATE pending_back_to_back_approvals SET status = 'approved', resolved_at = ? WHERE id = ?")
       .run(new Date().toISOString(), id);
   }
 
   rejectBackToBack({ id, rejectedBy }) {
+    // Preserve who rejected in whichever approval slot has not yet been filled for easier audit/debugging.
     this.db
       .prepare("UPDATE pending_back_to_back_approvals SET status = 'rejected', resolved_at = ?, user_approved_by = COALESCE(user_approved_by, ?), admin_approved_by = COALESCE(admin_approved_by, ?) WHERE id = ?")
       .run(new Date().toISOString(), rejectedBy, rejectedBy, id);

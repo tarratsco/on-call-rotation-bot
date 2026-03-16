@@ -17,6 +17,7 @@ function initDb(dbPath) {
   db.pragma('journal_mode = WAL');
 
   db.exec(`
+    -- Team roster and queue ordering.
     CREATE TABLE IF NOT EXISTS team_members (
       id TEXT PRIMARY KEY,
       slack_user_id TEXT UNIQUE NOT NULL,
@@ -27,6 +28,7 @@ function initDb(dbPath) {
       created_at TEXT NOT NULL
     );
 
+    -- Committed weekly assignments used by /oncall and reminders.
     CREATE TABLE IF NOT EXISTS rotation_history (
       id TEXT PRIMARY KEY,
       member_id TEXT NOT NULL,
@@ -37,6 +39,7 @@ function initDb(dbPath) {
       FOREIGN KEY(member_id) REFERENCES team_members(id)
     );
 
+    -- Explicit week-level overrides configured by admins.
     CREATE TABLE IF NOT EXISTS schedule_overrides (
       id TEXT PRIMARY KEY,
       week_start TEXT NOT NULL,
@@ -48,6 +51,7 @@ function initDb(dbPath) {
       FOREIGN KEY(member_id) REFERENCES team_members(id)
     );
 
+    -- Legacy swap-request records (kept for compatibility/reporting).
     CREATE TABLE IF NOT EXISTS pending_swaps (
       id TEXT PRIMARY KEY,
       week_start TEXT NOT NULL,
@@ -58,6 +62,7 @@ function initDb(dbPath) {
       created_at TEXT NOT NULL
     );
 
+    -- Two-party approval state for potentially back-to-back overrides.
     CREATE TABLE IF NOT EXISTS pending_back_to_back_approvals (
       id TEXT PRIMARY KEY,
       week_start TEXT NOT NULL,
@@ -73,6 +78,7 @@ function initDb(dbPath) {
       FOREIGN KEY(member_id) REFERENCES team_members(id)
     );
 
+    -- Key/value store for runtime config (schedule, reminder channel, queue baseline).
     CREATE TABLE IF NOT EXISTS bot_config (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL

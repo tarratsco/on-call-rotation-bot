@@ -353,6 +353,10 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
     });
   }
 
+  /**
+   * Slash command: `/oncall-help`
+   * Shows a compact command catalog for end users and admins.
+   */
   app.command('/oncall-help', async ({ ack, command, respond, client }) => {
     await ack();
     await sendEphemeral({
@@ -375,6 +379,10 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
     });
   });
 
+  /**
+   * Slash command: `/oncall`
+   * Returns current and next week assignees using final-assignment resolution.
+   */
   app.command('/oncall', async ({ ack, command, respond, client }) => {
     await ack();
     const thisWeek = weekStartISO(new Date());
@@ -391,6 +399,10 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
     });
   });
 
+  /**
+   * Slash command: `/oncall-schedule [weeks]`
+   * Returns a bounded, preview-only schedule projection (default 6, max 12).
+   */
   app.command('/oncall-schedule', async ({ ack, command, respond, client }) => {
     await ack();
     const weeks = Number.parseInt(command.text?.trim() || '6', 10);
@@ -409,6 +421,10 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
     });
   });
 
+  /**
+   * Slash command: `/oncall-list`
+   * Lists active participants in current queue order.
+   */
   app.command('/oncall-list', async ({ ack, command, respond, client }) => {
     await ack();
     const members = rotationService.listMembers();
@@ -421,6 +437,10 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
     await sendEphemeral({ respond, client, command, logger, text: lines.join('\n') });
   });
 
+  /**
+   * Slash command: `/oncall-add @user [@user2 ...]`
+   * Admin-only participant enrollment (supports multiple users in one call).
+   */
   app.command('/oncall-add', async ({ ack, command, respond, client }) => {
     await ack();
     if (!(await requireAdmin({ userId: command.user_id, respond, client, command }))) {
@@ -453,6 +473,10 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
     });
   });
 
+  /**
+   * Slash command: `/oncall-remove @user`
+   * Admin-only participant deactivation and queue reindexing trigger.
+   */
   app.command('/oncall-remove', async ({ ack, command, respond, client }) => {
     await ack();
     if (!(await requireAdmin({ userId: command.user_id, respond, client, command }))) {
@@ -475,6 +499,10 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
     });
   });
 
+  /**
+   * Slash command: `/oncall-override ...`
+   * Admin override entrypoint plus approval action handling (`approve|reject <id>`).
+   */
   app.command('/oncall-override', async ({ ack, command, respond, client }) => {
     await ack();
     const text = (command.text || '').trim();
@@ -510,6 +538,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
       });
 
       if (!isApprovalSatisfied(updated)) {
+        // Keep request pending until both roles sign off.
         const waiting = [];
         if (!updated.user_approved_by) {
           waiting.push('target user');
@@ -597,6 +626,10 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
   });
 
 
+  /**
+   * Slash command: `/oncall-admin help`
+   * Admin-only config summary and operational command reference.
+   */
   app.command('/oncall-admin', async ({ ack, command, respond, client }) => {
     await ack();
     if (!(await requireAdmin({ userId: command.user_id, respond, client, command }))) {
@@ -618,6 +651,10 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
     });
   });
 
+  /**
+   * Slash command: `/oncall-set ...`
+   * Admin config updates for channel, schedule, and rotation baseline/order.
+   */
   app.command('/oncall-set', async ({ ack, command, respond, client }) => {
     await ack();
     if (!(await requireAdmin({ userId: command.user_id, respond, client, command }))) {
@@ -650,6 +687,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
         return;
       }
 
+      // This write also refreshes the persisted rotation baseline used by reset.
       const result = rotationService.setQueueOrderBySlackIds(userIds);
       if (!result.updated) {
         await sendEphemeral({ respond, client, command, logger, text: result.error || 'Could not update rotation order.' });
@@ -730,6 +768,10 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
     });
   });
 
+  /**
+   * Slash command: `/oncall-reset ...`
+   * Admin reset entrypoint for schedule-state clear or full destructive reset.
+   */
   app.command('/oncall-reset', async ({ ack, command, respond, client }) => {
     await ack();
     if (!(await requireAdmin({ userId: command.user_id, respond, client, command }))) {
@@ -788,6 +830,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
     }
 
     if (text === 'all confirm') {
+      // Explicit two-token confirmation reduces accidental destructive resets.
       const result = rotationService.clearAllData();
       await sendEphemeral({
         respond,
