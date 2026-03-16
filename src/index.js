@@ -7,6 +7,20 @@ const { parseReminderConfig, weekStartISO, addWeeks } = require('./dateUtils');
 const { RotationService } = require('./rotationService');
 const { createHandlers } = require('./slackHandlers');
 
+/**
+ * Creates the bot runtime with optional dependency injection for tests.
+ * @param {{
+ *   env?: NodeJS.ProcessEnv,
+ *   logger?: Console,
+ *   dependencies?: {
+ *     initDbFn?: Function,
+ *     RotationServiceClass?: Function,
+ *     AppClass?: Function,
+ *     cronLib?: { schedule: Function },
+ *     createHandlersFn?: Function
+ *   }
+ * }} [options]
+ */
 function createRuntime(options = {}) {
   const env = options.env || process.env;
   const logger = options.logger || console;
@@ -47,6 +61,7 @@ function createRuntime(options = {}) {
 
   let scheduledReminderTask = null;
 
+  /** Stops the currently scheduled cron task, if one exists. */
   function stopScheduledReminderTask() {
     if (!scheduledReminderTask) {
       return;
@@ -61,6 +76,7 @@ function createRuntime(options = {}) {
     scheduledReminderTask = null;
   }
 
+  /** Posts the weekly reminder summary to the configured channel. */
   async function postWeeklyReminder() {
     const config = rotationService.getConfig();
     if (!config.reminder_channel) {
@@ -103,6 +119,7 @@ function createRuntime(options = {}) {
     });
   }
 
+  /** Registers (or re-registers) the reminder cron task from config. */
   function scheduleWeeklyReminder() {
     stopScheduledReminderTask();
 
@@ -133,6 +150,9 @@ function createRuntime(options = {}) {
     },
   });
 
+  /**
+   * Sends a catch-up reminder shortly after startup when current week already has assignment history.
+   */
   async function sendMissedReminderIfNeeded() {
     const config = rotationService.getConfig();
     if (!config.reminder_channel) {
@@ -159,6 +179,7 @@ function createRuntime(options = {}) {
     await postWeeklyReminder();
   }
 
+  /** Starts the Slack app and reminder workflows. */
   async function start() {
     await app.start(Number(env.PORT || 3000));
     logger.log('⚡️ On-call rotation bot is running');

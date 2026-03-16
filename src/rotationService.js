@@ -1,12 +1,23 @@
 const { v4: uuidv4 } = require('uuid');
 const { addWeeks, weekStartISO } = require('./dateUtils');
 
+/**
+ * Encapsulates all rotation, override, and schedule-state domain logic.
+ */
 class RotationService {
+  /**
+   * @param {import('better-sqlite3').Database} db
+   * @param {{ initialAdminIds?: string[] }} [options]
+   */
   constructor(db, options = {}) {
     this.db = db;
     this.initialAdminIds = new Set(options.initialAdminIds || []);
   }
 
+  /**
+   * Seeds config defaults for keys that are not yet present.
+   * @param {Record<string, string>} defaults
+   */
   bootstrapConfig(defaults) {
     const upsert = this.db.prepare('INSERT INTO bot_config(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
     Object.entries(defaults).forEach(([key, value]) => {
@@ -17,6 +28,10 @@ class RotationService {
     });
   }
 
+  /**
+   * Marks existing active members as admins based on Slack user IDs.
+   * @param {string[]} [adminSlackIds]
+   */
   bootstrapAdmins(adminSlackIds = []) {
     if (!adminSlackIds.length) {
       return;
@@ -25,6 +40,7 @@ class RotationService {
     adminSlackIds.forEach((id) => markAdmin.run(id));
   }
 
+  /** @returns {Record<string, string>} */
   getConfig() {
     const rows = this.db.prepare('SELECT key, value FROM bot_config').all();
     return rows.reduce((acc, row) => {
@@ -33,10 +49,20 @@ class RotationService {
     }, {});
   }
 
+  /**
+   * Sets a single bot config key/value pair.
+   * @param {string} key
+   * @param {string} value
+   */
   setConfig(key, value) {
     this.db.prepare('INSERT INTO bot_config(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, String(value));
   }
 
+  /**
+   * Returns true if the user is an admin from bootstrapped IDs or persisted member flags.
+   * @param {string} slackUserId
+   * @returns {boolean}
+   */
   isAdmin(slackUserId) {
     if (this.initialAdminIds.has(slackUserId)) {
       return true;
@@ -45,10 +71,18 @@ class RotationService {
     return Boolean(member && member.is_admin);
   }
 
+  /**
+   * Fetches a member row by Slack user ID.
+   * @param {string} slackUserId
+   */
   getMemberBySlackId(slackUserId) {
     return this.db.prepare('SELECT * FROM team_members WHERE slack_user_id = ?').get(slackUserId);
   }
 
+  /**
+   * Adds or reactivates a member, appending new members to queue tail.
+   * @param {{ slackUserId: string, displayName: string, isAdmin?: boolean }} params
+   */
   addMember({ slackUserId, displayName, isAdmin = false }) {
     const existing = this.getMemberBySlackId(slackUserId);
     const now = new Date().toISOString();
@@ -76,6 +110,11 @@ class RotationService {
     return this.getMemberBySlackId(slackUserId);
   }
 
+  /**
+   * Deactivates a member and reindexes queue positions.
+   * @param {string} slackUserId
+   * @returns {{ removed: boolean }}
+   */
   removeMember(slackUserId) {
     const member = this.getMemberBySlackId(slackUserId);
     if (!member || !member.is_active) {
@@ -95,12 +134,14 @@ class RotationService {
     return { removed: true };
   }
 
+  /** Returns all active members in queue order. */
   listMembers() {
     return this.db
       .prepare('SELECT * FROM team_members WHERE is_active = 1 ORDER BY queue_position ASC')
       .all();
   }
 
+  /** Reassigns queue positions to 1..N in current active order. */
   reindexQueue() {
     const members = this.listMembers();
     const update = this.db.prepare('UPDATE team_members SET queue_position = ? WHERE id = ?');
@@ -109,6 +150,11 @@ class RotationService {
     });
   }
 
+  /**
+   * Sets explicit queue order by Slack IDs.
+   * @param {string[]} slackUserIds
+   * @param {{ persistBaseline?: boolean }} [options]
+   */
   setQueueOrderBySlackIds(slackUserIds = [], options = {}) {
     const persistBaseline = options.persistBaseline !== false;
     const members = this.listMembers();
@@ -144,6 +190,7 @@ class RotationService {
     return { updated: true, members: this.listMembers() };
   }
 
+  /** Returns persisted queue baseline as Slack IDs. */
   getQueueBaselineSlackIds() {
     const raw = this.getConfig().queue_baseline;
     if (!raw) {
@@ -166,6 +213,9 @@ class RotationService {
     return [];
   }
 
+  /**
+   * Restores active queue order from saved baseline when participant set still matches.
+   */
   restoreQueueFromBaseline() {
     const baseline = this.getQueueBaselineSlackIds();
     if (!baseline.length) {
@@ -192,6 +242,7 @@ class RotationService {
     return { restored: true, members: result.members };
   }
 
+  /** Clears assignment-state tables while keeping active users. */
   clearScheduleState() {
     this.db.prepare('DELETE FROM rotation_history').run();
     this.db.prepare('DELETE FROM schedule_overrides').run();
@@ -201,6 +252,9 @@ class RotationService {
     return { cleared: true };
   }
 
+  /**
+   * Legacy helper to reset queue to member creation order and clear assignment state.
+   */
   clearQueueKeepUsers() {
     const activeMembers = this.db
       .prepare('SELECT id FROM team_members WHERE is_active = 1 ORDER BY created_at ASC, slack_user_id ASC')
@@ -218,6 +272,7 @@ class RotationService {
     };
   }
 
+  /** Deactivates all active users and clears assignment state. */
   clearAllData() {
     const activeCountRow = this.db.prepare('SELECT COUNT(*) AS count FROM team_members WHERE is_active = 1').get();
     this.db.prepare('UPDATE team_members SET is_active = 0 WHERE is_active = 1').run();
@@ -228,6 +283,10 @@ class RotationService {
     };
   }
 
+  /**
+   * Moves a member to queue tail.
+   * @param {string} memberId
+   */
   moveToBack(memberId) {
     const members = this.listMembers();
     const current = members.find((m) => m.id === memberId);
@@ -243,10 +302,19 @@ class RotationService {
     });
   }
 
+  /**
+   * Returns manual overrides for a specific week.
+   * @param {string} weekStart
+   */
   getOverridesForWeek(weekStart) {
     return this.db.prepare('SELECT * FROM schedule_overrides WHERE week_start = ? ORDER BY created_at DESC').all(weekStart);
   }
 
+  /**
+   * Returns explicit assigned member ID for a week when override exists.
+   * @param {string} weekStart
+   * @returns {string|null}
+   */
   getExplicitAssignedMemberId(weekStart) {
     const row = this.db
       .prepare("SELECT member_id FROM schedule_overrides WHERE week_start = ? AND override_type IN ('swap', 'override') ORDER BY created_at DESC LIMIT 1")
@@ -254,10 +322,18 @@ class RotationService {
     return row ? row.member_id : null;
   }
 
+  /**
+   * Reads generated assignment history for a week.
+   * @param {string} weekStart
+   */
   getHistory(weekStart) {
     return this.db.prepare('SELECT * FROM rotation_history WHERE week_start = ?').get(weekStart);
   }
 
+  /**
+   * Generates and persists an automatic assignment when history is missing.
+   * @param {string} weekStart
+   */
   ensureAutoAssignment(weekStart) {
     const existing = this.getHistory(weekStart);
     if (existing) {
@@ -296,6 +372,10 @@ class RotationService {
     return this.getHistory(weekStart);
   }
 
+  /**
+   * Resolves final assignment for a week (explicit override wins over generated history).
+   * @param {string} weekStart
+   */
   getFinalAssignmentForWeek(weekStart) {
     this.ensureAutoAssignment(weekStart);
     const explicitMemberId = this.getExplicitAssignedMemberId(weekStart);
@@ -308,6 +388,11 @@ class RotationService {
     return this.db.prepare('SELECT * FROM team_members WHERE id = ?').get(memberId);
   }
 
+  /**
+   * Returns upcoming schedule and persists generated history as needed.
+   * @param {string} startWeek
+   * @param {number} [weeks]
+   */
   getUpcomingSchedule(startWeek, weeks = 6) {
     const result = [];
     for (let offset = 0; offset < weeks; offset += 1) {
@@ -318,6 +403,12 @@ class RotationService {
     return result;
   }
 
+  /**
+   * Returns a non-mutating projection of upcoming schedule.
+   * @param {string} startWeek
+   * @param {number} [weeks]
+   * @param {{ overrideMemberIdByWeekStart?: Record<string, string> }} [options]
+   */
   getUpcomingSchedulePreview(startWeek, weeks = 6, options = {}) {
     const overrideMemberIdByWeekStart = options.overrideMemberIdByWeekStart || {};
     const members = this.listMembers();
@@ -393,6 +484,10 @@ class RotationService {
     return result;
   }
 
+  /**
+   * Stores a week override without mutating queue state.
+   * @param {{ weekStart: string, memberId: string, createdBy: string, type?: string }} params
+   */
   setOverride({ weekStart, memberId, createdBy, type = 'override' }) {
     this.db
       .prepare('INSERT INTO schedule_overrides(id, week_start, member_id, override_type, created_by, created_at, details) VALUES (?, ?, ?, ?, ?, ?, ?)')
@@ -401,6 +496,10 @@ class RotationService {
     return this.db.prepare('SELECT * FROM team_members WHERE id = ?').get(memberId);
   }
 
+  /**
+   * Creates a pending swap request.
+   * @param {{ weekStart: string, requesterUserId: string, targetUserId: string }} params
+   */
   createPendingSwap({ weekStart, requesterUserId, targetUserId }) {
     const now = new Date();
     const expires = new Date(now.getTime() + 24 * 60 * 60 * 1000);
@@ -411,6 +510,10 @@ class RotationService {
     return id;
   }
 
+  /**
+   * Retrieves the latest pending swap for requester/target/week.
+   * @param {{ weekStart: string, requesterUserId: string, targetUserId: string }} params
+   */
   getPendingSwap({ weekStart, requesterUserId, targetUserId }) {
     return this.db
       .prepare(
@@ -419,14 +522,25 @@ class RotationService {
       .get(weekStart, requesterUserId, targetUserId);
   }
 
+  /**
+   * Resolves a pending swap request.
+   * @param {string} id
+   * @param {string} status
+   */
   resolvePendingSwap(id, status) {
     this.db.prepare('UPDATE pending_swaps SET status = ? WHERE id = ?').run(status, id);
   }
 
+  /** Returns active admins. */
   getAdmins() {
     return this.db.prepare('SELECT * FROM team_members WHERE is_active = 1 AND is_admin = 1').all();
   }
 
+  /**
+   * Checks whether assigning a user on a week would cause adjacent-week back-to-back assignment.
+   * @param {{ weekStart: string, memberId: string }} params
+   * @returns {boolean}
+   */
   wouldCauseBackToBack({ weekStart, memberId }) {
     const previousWeek = addWeeks(weekStart, -1);
     const nextWeek = addWeeks(weekStart, 1);

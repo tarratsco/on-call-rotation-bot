@@ -2,6 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const Database = require('better-sqlite3');
 
+/**
+ * Initializes SQLite database file and schema for the on-call bot.
+ * @param {string} dbPath
+ * @returns {import('better-sqlite3').Database}
+ */
 function initDb(dbPath) {
   const absolutePath = path.resolve(dbPath || './data/oncall.sqlite');
   fs.mkdirSync(path.dirname(absolutePath), { recursive: true });

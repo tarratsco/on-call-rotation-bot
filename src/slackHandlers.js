@@ -1,9 +1,15 @@
 const { addWeeks, normalizeWeekInput, weekStartISO } = require('./dateUtils');
 
+/** Normalizes a potential Slack handle for case-insensitive matching. */
 function normalizeHandle(value) {
   return (value || '').trim().toLowerCase();
 }
 
+/**
+ * Builds a best-effort map of Slack handles/display names to Slack user IDs.
+ * @param {*} client
+ * @returns {Promise<Map<string, string>>}
+ */
 async function buildSlackHandleMap(client) {
   const handleToId = new Map();
   let cursor;
@@ -38,6 +44,12 @@ async function buildSlackHandleMap(client) {
   return handleToId;
 }
 
+/**
+ * Parses mentions/raw IDs/handles from command text and resolves them to Slack user IDs.
+ * @param {string} text
+ * @param {*} client
+ * @returns {Promise<string[]>}
+ */
 async function parseSlackUserIds(text, client) {
   const fromMentions = [...text.matchAll(/<@([A-Z0-9]+)(?:\|[^>]+)?>/g)].map((m) => m[1]);
   const fromRawIds = [...text.matchAll(/\b(U[A-Z0-9]{8,})\b/g)].map((m) => m[1]);
@@ -52,11 +64,13 @@ async function parseSlackUserIds(text, client) {
   return [...new Set([...fromMentions, ...fromRawIds, ...resolvedHandles])];
 }
 
+/** Returns true when command text appears to include a user token. */
 function hasUserToken(text) {
   const value = text || '';
   return /<@[A-Z0-9]+(?:\|[^>]+)?>/.test(value) || /(?:^|\s)@[a-z0-9._-]+/i.test(value) || /\bU[A-Z0-9]{8,}\b/.test(value);
 }
 
+/** Extracts channel ID from a channel mention token or direct channel ID input. */
 function parseChannelId(text) {
   const match = /<#([A-Z0-9]+)(?:\|[^>]+)?>/.exec(text);
   if (match) {
@@ -68,6 +82,10 @@ function parseChannelId(text) {
   return null;
 }
 
+/**
+ * Resolves channel input to channel ID.
+ * Supports channel mention tokens, direct IDs, and same-channel `#name` usage.
+ */
 function resolveChannelId(text, command) {
   const fromToken = parseChannelId(text);
   if (fromToken) {
@@ -89,10 +107,12 @@ function resolveChannelId(text, command) {
   return null;
 }
 
+/** Formats a Slack mention token. */
 function mention(userId) {
   return `<@${userId}>`;
 }
 
+/** Removes any user tokens from command text and returns remaining text. */
 function stripUserTokens(text) {
   return (text || '')
     .replace(/<@[^>]+>/g, ' ')
@@ -102,6 +122,7 @@ function stripUserTokens(text) {
     .trim();
 }
 
+/** Formats a member row for user-facing output. */
 function formatMember(member) {
   if (!member) {
     return '_unassigned_';
@@ -115,12 +136,17 @@ function formatMember(member) {
   return `${mention(member.slack_user_id)} (${displayName})`;
 }
 
+/** Formats the command that triggered a response for better traceability. */
 function formatCommandEcho(command) {
   const cmd = command?.command || '';
   const args = (command?.text || '').trim();
   return args ? `*Command:* \`${cmd} ${args}\`` : `*Command:* \`${cmd}\``;
 }
 
+/**
+ * Sends ephemeral response, falling back to `chat.postEphemeral` if `respond()` fails.
+ * @param {{ respond: Function, client: *, command: *, logger: *, text: string }} args
+ */
 async function sendEphemeral({ respond, client, command, logger, text }) {
   const fullText = `${formatCommandEcho(command)}\n\n${text}`;
   const payload = { response_type: 'ephemeral', text: fullText };
@@ -143,12 +169,22 @@ async function sendEphemeral({ respond, client, command, logger, text }) {
   }
 }
 
+/** Formats schedule rows for display. */
 function formatSchedule(schedule) {
   return schedule
     .map((entry) => `${entry.weekStart}: ${formatMember(entry.member)}`)
     .join('\n');
 }
 
+/**
+ * Registers all slash-command handlers.
+ * @param {{
+ *   app: *,
+ *   rotationService: *,
+ *   logger: *,
+ *   onScheduleConfigChanged?: Function
+ * }} deps
+ */
 function createHandlers({ app, rotationService, logger, onScheduleConfigChanged }) {
   function isApprovalSatisfied(approval) {
     return Boolean(approval && approval.user_approved_by && approval.admin_approved_by);
