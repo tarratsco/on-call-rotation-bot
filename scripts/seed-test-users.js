@@ -17,6 +17,7 @@ const service = new RotationService(db);
 
 const seeded = [];
 for (let index = 1; index <= count; index += 1) {
+  // Deterministic IDs make cleanup and repeatable demo scripts straightforward.
   const slackUserId = `${prefix}${String(index).padStart(4, '0')}`;
   const displayName = `Test User ${index}`;
   const member = service.addMember({
@@ -30,6 +31,7 @@ for (let index = 1; index <= count; index += 1) {
 if (adminId) {
   const exists = service.getMemberBySlackId(adminId);
   if (exists) {
+    // Force admin flag after seeding so re-runs can promote any seeded user predictably.
     db.prepare('UPDATE team_members SET is_admin = 1 WHERE slack_user_id = ?').run(adminId);
   }
 }

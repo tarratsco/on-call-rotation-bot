@@ -89,12 +89,14 @@ class RotationService {
     const shouldBeAdmin = Boolean(isAdmin || this.initialAdminIds.has(slackUserId));
 
     if (existing) {
+      // Reactivation keeps prior queue/admin intent unless explicitly elevated.
       this.db
         .prepare('UPDATE team_members SET display_name = ?, is_active = 1, is_admin = ? WHERE slack_user_id = ?')
         .run(displayName, shouldBeAdmin ? 1 : existing.is_admin, slackUserId);
       return this.getMemberBySlackId(slackUserId);
     }
 
+    // New members start at queue tail to preserve existing rotation fairness.
     const max = this.db.prepare('SELECT COALESCE(MAX(queue_position), 0) AS max_position FROM team_members WHERE is_active = 1').get();
     const queuePosition = max.max_position + 1;
 
@@ -184,6 +186,7 @@ class RotationService {
     });
 
     if (persistBaseline) {
+      // Persist the canonical queue so reset can restore expected order later.
       this.setConfig('queue_baseline', JSON.stringify(uniqueIds));
     }
 
@@ -231,9 +234,11 @@ class RotationService {
 
     const activeSet = new Set(activeIds);
     if (!baseline.every((slackUserId) => activeSet.has(slackUserId))) {
+      // Refuse partial restores when participant set changed to avoid silent corruption.
       return { restored: false, reason: 'baseline-mismatch' };
     }
 
+    // Re-apply ordering without rewriting baseline so this remains an idempotent restore.
     const result = this.setQueueOrderBySlackIds(baseline, { persistBaseline: false });
     if (!result.updated) {
       return { restored: false, reason: 'restore-failed', error: result.error };
@@ -352,6 +357,7 @@ class RotationService {
 
     let selected = null;
     for (const member of members) {
+      // Avoid immediate back-to-back assignments when alternatives exist.
       if (members.length > 1 && previousMemberId && member.id === previousMemberId) {
         continue;
       }
@@ -368,6 +374,7 @@ class RotationService {
       .prepare('INSERT INTO rotation_history(id, member_id, week_start, assigned_at, source) VALUES (?, ?, ?, ?, ?)')
       .run(uuidv4(), selected.id, weekStart, now, 'auto');
 
+    // Move selected member to tail to maintain round-robin progression.
     this.moveToBack(selected.id);
     return this.getHistory(weekStart);
   }
@@ -419,6 +426,7 @@ class RotationService {
 
     for (let offset = 0; offset < weeks; offset += 1) {
       const weekStart = addWeeks(startWeek, offset);
+      // Injected overrides allow hypothetical checks (e.g., wouldCauseBackToBack) without DB writes.
       const injectedOverrideMemberId = overrideMemberIdByWeekStart[weekStart] || null;
       const explicitMemberId = this.getExplicitAssignedMemberId(weekStart);
       const history = this.getHistory(weekStart);
@@ -436,6 +444,7 @@ class RotationService {
       const selectAutoCandidate = () => {
         let selected = null;
         for (const member of simulatedQueue) {
+          // Preview mirrors live back-to-back protection so forecast matches runtime intent.
           if (simulatedQueue.length > 1 && previousMemberId && member.id === previousMemberId) {
             continue;
           }
@@ -545,11 +554,13 @@ class RotationService {
     const previousWeek = addWeeks(weekStart, -1);
     const nextWeek = addWeeks(weekStart, 1);
     const currentWeek = weekStartISO(new Date());
+    // Project from at least previous week so adjacency checks use consistent simulated context.
     const startWeek = currentWeek < previousWeek ? currentWeek : previousWeek;
 
     const startDate = new Date(`${startWeek}T00:00:00Z`);
     const endDate = new Date(`${nextWeek}T00:00:00Z`);
     const diffWeeks = Math.floor((endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    // Ensure projection always includes previous/current/next windows.
     const weeks = Math.max(diffWeeks + 1, 3);
 
     const projected = this.getUpcomingSchedulePreview(startWeek, weeks, {

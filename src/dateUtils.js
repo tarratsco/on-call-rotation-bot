@@ -25,6 +25,7 @@ function toDateOnly(date) {
 function weekStartISO(inputDate = new Date()) {
   const date = toDateOnly(inputDate);
   const day = date.getUTCDay();
+  // Normalize to Monday to keep scheduling boundaries deterministic.
   const diffToMonday = (day + 6) % 7;
   date.setUTCDate(date.getUTCDate() - diffToMonday);
   return date.toISOString().slice(0, 10);
@@ -49,6 +50,7 @@ function addWeeks(isoDate, weeks) {
  */
 function normalizeWeekInput(weekInput) {
   if (!weekInput) {
+    // Empty week input defaults to current operational week.
     return weekStartISO(new Date());
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(weekInput)) {
@@ -74,6 +76,7 @@ function parseReminderConfig(day, time) {
     throw new Error('Invalid reminder day. Use Monday-Sunday.');
   }
 
+  // Enforce 24h format so cron generation remains unambiguous.
   const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec((time || '09:00').trim());
   if (!match) {
     throw new Error('Invalid reminder time. Use HH:MM 24h format.');

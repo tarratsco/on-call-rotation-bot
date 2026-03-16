@@ -32,6 +32,7 @@ async function buildSlackHandleMap(client) {
         .filter(Boolean);
 
       for (const candidate of candidates) {
+        // First-win avoids unstable remaps when duplicate handles exist in workspace.
         if (!handleToId.has(candidate)) {
           handleToId.set(candidate, user.id);
         }
@@ -56,10 +57,12 @@ async function parseSlackUserIds(text, client) {
   const fromHandles = [...text.matchAll(/(?:^|\s)@([a-z0-9._-]+)/gi)].map((m) => normalizeHandle(m[1]));
 
   if (!fromHandles.length) {
+    // Preserve user-entered order while dropping duplicates.
     return [...new Set([...fromMentions, ...fromRawIds])];
   }
 
   const handleMap = await buildSlackHandleMap(client);
+  // Handle tokens are best-effort because Slack does not guarantee global uniqueness for display names.
   const resolvedHandles = fromHandles.map((handle) => handleMap.get(handle)).filter(Boolean);
   return [...new Set([...fromMentions, ...fromRawIds, ...resolvedHandles])];
 }
@@ -100,6 +103,7 @@ function resolveChannelId(text, command) {
 
   const requestedName = nameMatch[1].toLowerCase();
   const currentName = (command.channel_name || '').trim().toLowerCase();
+  // Name-only lookups are intentionally limited to current channel to avoid broad channel-search scopes.
   if (requestedName && currentName && requestedName === currentName) {
     return command.channel_id;
   }
@@ -155,6 +159,7 @@ async function sendEphemeral({ respond, client, command, logger, text }) {
     await respond(payload);
     return;
   } catch (error) {
+    // Keep command UX resilient when response_url expires or fails.
     logger.warn(`respond() failed for ${command.command}: ${error.message}`);
   }
 
@@ -191,6 +196,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
   }
 
   async function requestBackToBackApproval({ weekStart, target, createdBy, overrideType, respond, client, command, autoApproveUserId }) {
+    // Persist request first so every follow-up notification references a stable approval ID.
     const approval = rotationService.createBackToBackApproval({
       weekStart,
       memberId: target.id,
@@ -201,6 +207,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
 
     let currentApproval = approval;
     if (autoApproveUserId && autoApproveUserId === target.slack_user_id) {
+      // If requester is also target user, pre-record user-side approval to reduce friction.
       currentApproval = rotationService.approveBackToBack({
         id: approval.id,
         approverUserId: autoApproveUserId,
@@ -226,6 +233,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
       logger.warn(`Could not notify target user ${target.slack_user_id} for approval ${currentApproval.id}: ${error.message}`);
     }
 
+    // Exclude target user from admin fan-out to avoid duplicate instructions.
     const admins = rotationService.getAdmins().filter((admin) => admin.slack_user_id !== target.slack_user_id);
     for (const admin of admins) {
       try {
@@ -244,6 +252,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
   async function applyOverrideWithBackToBackGuard({ weekStart, target, createdBy, overrideType, respond, client, command, successText, autoApproveUserId }) {
     const wouldCauseBackToBack = rotationService.wouldCauseBackToBack({ weekStart, memberId: target.id });
     if (!wouldCauseBackToBack) {
+      // Fast path: when safe, apply override immediately with no approval ceremony.
       rotationService.setOverride({ weekStart, memberId: target.id, createdBy, type: overrideType });
       await sendEphemeral({ respond, client, command, logger, text: successText });
       return { applied: true };
@@ -277,6 +286,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
     if (rotationService.isAdmin(userId)) {
       return true;
     }
+    // Keep unauthorized attempts visible to the caller while avoiding noisy channel posts.
     await sendEphemeral({
       respond,
       client,
@@ -299,11 +309,13 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
         if (key === 'queue_baseline' && value) {
           let ids = [];
           try {
+            // Newer format stores JSON array for explicit ordering.
             const parsed = JSON.parse(value);
             if (Array.isArray(parsed)) {
               ids = parsed.map((item) => String(item));
             }
           } catch (_error) {
+            // Fallback keeps support for legacy comma-separated baseline values.
             ids = String(value)
               .split(',')
               .map((item) => item.trim())
@@ -384,6 +396,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
     const weeks = Number.parseInt(command.text?.trim() || '6', 10);
     const count = Number.isNaN(weeks) ? 6 : Math.min(Math.max(weeks, 1), 12);
     const start = weekStartISO(new Date());
+    // Prefer non-mutating preview so viewing schedule does not alter assignment state.
     const schedule = typeof rotationService.getUpcomingSchedulePreview === 'function'
       ? rotationService.getUpcomingSchedulePreview(start, count)
       : rotationService.getUpcomingSchedule(start, count);
@@ -466,6 +479,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
     await ack();
     const text = (command.text || '').trim();
 
+    // Approval IDs are UUID-like values issued by this bot for back-to-back guardrails.
     const approvalAction = /^(approve|reject)\s+([a-f0-9-]{8,})$/i.exec(text);
     if (approvalAction) {
       const [, action, approvalId] = approvalAction;
@@ -552,6 +566,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
     const weekToken = stripUserTokens(command.text || '');
     let weekStart;
     try {
+      // Anything left after stripping user tokens is interpreted as optional week argument.
       weekStart = normalizeWeekInput(weekToken || weekStartISO(new Date()));
     } catch (error) {
       await sendEphemeral({
@@ -623,6 +638,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
 
     if (text.startsWith('rotation ')) {
       let raw = text.replace(/^rotation\s+/i, '').trim();
+      // `apply-now` is parsed as a suffix so participant handles can remain positional.
       const applyNow = /\s+apply-now$/i.test(raw);
       if (applyNow) {
         raw = raw.replace(/\s+apply-now$/i, '').trim();
@@ -641,6 +657,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
       }
 
       if (applyNow) {
+        // Clearing schedule state forces future generated weeks to honor the new queue immediately.
         rotationService.clearScheduleState();
       }
 
@@ -685,6 +702,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
       let scheduleMessage = `Reminder schedule updated: ${day} ${time} ${timezone}.`;
       if (typeof onScheduleConfigChanged === 'function') {
         try {
+          // Runtime callback rebinds cron task so change applies without process restart.
           await onScheduleConfigChanged({ day, time, timezone });
           scheduleMessage = `${scheduleMessage} Scheduler reloaded.`;
         } catch (error) {
@@ -732,6 +750,7 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
 
     if (text === 'schedule') {
       rotationService.clearScheduleState();
+      // Backward compatible fallback when running older test stubs or injected services.
       const restore = typeof rotationService.restoreQueueFromBaseline === 'function'
         ? rotationService.restoreQueueFromBaseline()
         : { restored: false, reason: 'unsupported' };
@@ -740,8 +759,10 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
       if (restore.restored) {
         details = 'Restored queue order from saved rotation baseline and cleared prior assignment state.';
       } else if (restore.reason === 'no-baseline') {
+        // First-time setups may not have baseline yet; preserve current order rather than guessing.
         details = 'No saved rotation baseline found; kept current queue order and cleared prior assignment state.';
       } else if (restore.reason === 'baseline-mismatch') {
+        // Participant set drift means safe automatic restore is impossible.
         details = 'Saved rotation baseline no longer matches active participants; kept current queue order and cleared prior assignment state.';
       }
 

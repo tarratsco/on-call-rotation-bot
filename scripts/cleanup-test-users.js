@@ -23,13 +23,16 @@ const ids = users.map((user) => user.id);
 const placeholders = ids.map(() => '?').join(',');
 
 if (ids.length) {
+  // Remove references first to avoid orphaned assignment records for deleted users.
   db.prepare(`DELETE FROM rotation_history WHERE member_id IN (${placeholders})`).run(...ids);
   db.prepare(`DELETE FROM schedule_overrides WHERE member_id IN (${placeholders})`).run(...ids);
 }
 
+// Pending swaps store Slack IDs directly, so cleanup is prefix-based rather than member-id based.
 db.prepare('DELETE FROM pending_swaps WHERE requester_user_id LIKE ? OR target_user_id LIKE ?').run(`${prefix}%`, `${prefix}%`);
 db.prepare('DELETE FROM team_members WHERE slack_user_id LIKE ?').run(`${prefix}%`);
 
+// Reindex keeps remaining non-test participants in contiguous queue positions.
 service.reindexQueue();
 
 console.log(`Removed ${users.length} test users with prefix ${prefix} from ${dbPath}`);

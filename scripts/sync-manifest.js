@@ -7,6 +7,7 @@ const yamlPath = path.join(root, 'slack-app-manifest.yml');
 const jsonPath = path.join(root, 'slack-app-manifest.json');
 
 function syncManifest() {
+  // YAML is the canonical manifest; JSON is a generated convenience artifact.
   const yamlContent = fs.readFileSync(yamlPath, 'utf8');
   const parsed = YAML.parse(yamlContent);
   const nextJson = `${JSON.stringify(parsed, null, 2)}\n`;
@@ -17,6 +18,7 @@ function syncManifest() {
   }
 
   if (currentJson === nextJson) {
+    // Skip write to keep git diffs clean when no semantic changes exist.
     console.log('slack-app-manifest.json already up to date');
     return;
   }

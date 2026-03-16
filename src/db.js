@@ -9,9 +9,11 @@ const Database = require('better-sqlite3');
  */
 function initDb(dbPath) {
   const absolutePath = path.resolve(dbPath || './data/oncall.sqlite');
+  // Ensure target folder exists so first boot can initialize cleanly.
   fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
 
   const db = new Database(absolutePath);
+  // WAL improves durability/concurrency for local bot process writes.
   db.pragma('journal_mode = WAL');
 
   db.exec(`

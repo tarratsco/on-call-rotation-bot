@@ -31,6 +31,7 @@ function createRuntime(options = {}) {
   const cronLib = deps.cronLib || cron;
   const createHandlersFn = deps.createHandlersFn || createHandlers;
 
+  // Keep state durable so assignments and config survive process restarts.
   const db = initDbFn(env.DB_PATH || './data/oncall.sqlite');
   const adminIds = (env.INITIAL_ADMIN_IDS || '')
     .split(',')
@@ -38,6 +39,7 @@ function createRuntime(options = {}) {
     .filter(Boolean);
   const rotationService = new RotationServiceClass(db, { initialAdminIds: adminIds });
 
+  // Seed defaults only for missing config keys to avoid clobbering admin changes.
   rotationService.bootstrapConfig({
     reminder_channel: env.REMINDER_CHANNEL_ID || '',
     reminder_day: env.REMINDER_DAY || 'Monday',
@@ -87,6 +89,7 @@ function createRuntime(options = {}) {
     const thisWeek = weekStartISO(new Date());
     const nextWeek = addWeeks(thisWeek, 1);
 
+    // Final-assignment lookups intentionally materialize weeks so reminders and /oncall stay consistent.
     const thisAssignee = rotationService.getFinalAssignmentForWeek(thisWeek);
     const nextAssignee = rotationService.getFinalAssignmentForWeek(nextWeek);
 
@@ -121,6 +124,7 @@ function createRuntime(options = {}) {
 
   /** Registers (or re-registers) the reminder cron task from config. */
   function scheduleWeeklyReminder() {
+    // Rebuild task on every schedule change so cron/timezone updates take effect immediately.
     stopScheduledReminderTask();
 
     const config = rotationService.getConfig();
@@ -165,11 +169,13 @@ function createRuntime(options = {}) {
       return;
     }
 
+    // Require existing history to avoid posting a catch-up reminder for hypothetical/unmaterialized weeks.
     const history = db.prepare('SELECT id FROM rotation_history WHERE week_start = ?').get(thisWeek);
     if (!history) {
       return;
     }
 
+    // Limit catch-up reminders to a short window to avoid stale notifications.
     const thisWeekDate = new Date(`${thisWeek}T00:00:00Z`);
     const ageInHours = (Date.now() - thisWeekDate.getTime()) / (1000 * 60 * 60);
     if (ageInHours > 36) {
