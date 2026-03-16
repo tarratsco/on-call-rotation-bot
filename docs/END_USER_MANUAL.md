@@ -16,7 +16,7 @@ The bot manages a weekly on-call rotation in Slack.
 ### Anyone
 
 - `/oncall` — Show this week and next week on-call
-- `/oncall-schedule [weeks]` — Show upcoming schedule (default 6, max 12)
+- `/oncall-schedule [weeks]` — Show upcoming schedule (default 6, max 12; preview-only)
 - `/oncall-list` — Show participants and queue order
 - `/oncall-help` — Show command help
 
@@ -28,8 +28,8 @@ The bot manages a weekly on-call rotation in Slack.
 - `/oncall-admin help` — Show current config + admin command help
 - `/oncall-set channel #channel` — Set reminder channel
 - `/oncall-set schedule Monday 09:00 America/New_York` — Set reminder schedule
-- `/oncall-set rotation @user1 @user2 ... [apply-now]` — Manually set queue order (optional immediate apply)
-- `/oncall-reset schedule` — Clear schedule state (keep active participants)
+- `/oncall-set rotation @user1 @user2 ... [apply-now]` — Manually set queue order (optional immediate apply). Saves this order as the rotation baseline.
+- `/oncall-reset schedule` — Clear schedule state (keep active participants) and restore saved rotation baseline when available
 - `/oncall-reset all confirm` — Deactivate all active participants + clear schedule state
 
 Admin command notes:

@@ -109,7 +109,8 @@ class RotationService {
     });
   }
 
-  setQueueOrderBySlackIds(slackUserIds = []) {
+  setQueueOrderBySlackIds(slackUserIds = [], options = {}) {
+    const persistBaseline = options.persistBaseline !== false;
     const members = this.listMembers();
     if (!members.length) {
       return { updated: false, error: 'No active participants yet.' };
@@ -136,7 +137,59 @@ class RotationService {
       update.run(index + 1, slackUserId);
     });
 
+    if (persistBaseline) {
+      this.setConfig('queue_baseline', JSON.stringify(uniqueIds));
+    }
+
     return { updated: true, members: this.listMembers() };
+  }
+
+  getQueueBaselineSlackIds() {
+    const raw = this.getConfig().queue_baseline;
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item));
+      }
+    } catch (_error) {
+      // Backward compatibility if older format ever used.
+      return raw
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+
+    return [];
+  }
+
+  restoreQueueFromBaseline() {
+    const baseline = this.getQueueBaselineSlackIds();
+    if (!baseline.length) {
+      return { restored: false, reason: 'no-baseline' };
+    }
+
+    const members = this.listMembers();
+    const activeIds = members.map((member) => member.slack_user_id);
+
+    if (baseline.length !== activeIds.length) {
+      return { restored: false, reason: 'baseline-mismatch' };
+    }
+
+    const activeSet = new Set(activeIds);
+    if (!baseline.every((slackUserId) => activeSet.has(slackUserId))) {
+      return { restored: false, reason: 'baseline-mismatch' };
+    }
+
+    const result = this.setQueueOrderBySlackIds(baseline, { persistBaseline: false });
+    if (!result.updated) {
+      return { restored: false, reason: 'restore-failed', error: result.error };
+    }
+
+    return { restored: true, members: result.members };
   }
 
   clearScheduleState() {
@@ -265,12 +318,87 @@ class RotationService {
     return result;
   }
 
+  getUpcomingSchedulePreview(startWeek, weeks = 6, options = {}) {
+    const overrideMemberIdByWeekStart = options.overrideMemberIdByWeekStart || {};
+    const members = this.listMembers();
+    const membersById = new Map(members.map((member) => [member.id, member]));
+    const simulatedQueue = [...members];
+    const simulatedAssignments = new Map();
+    const result = [];
+
+    for (let offset = 0; offset < weeks; offset += 1) {
+      const weekStart = addWeeks(startWeek, offset);
+      const injectedOverrideMemberId = overrideMemberIdByWeekStart[weekStart] || null;
+      const explicitMemberId = this.getExplicitAssignedMemberId(weekStart);
+      const history = this.getHistory(weekStart);
+      const historyMemberId = history ? history.member_id : null;
+
+      const previousWeek = addWeeks(weekStart, -1);
+      const previousMemberId =
+        simulatedAssignments.get(previousWeek)
+        || this.getExplicitAssignedMemberId(previousWeek)
+        || (this.getHistory(previousWeek) && this.getHistory(previousWeek).member_id)
+        || null;
+
+      let memberId = injectedOverrideMemberId || explicitMemberId || historyMemberId;
+
+      const selectAutoCandidate = () => {
+        let selected = null;
+        for (const member of simulatedQueue) {
+          if (simulatedQueue.length > 1 && previousMemberId && member.id === previousMemberId) {
+            continue;
+          }
+          selected = member;
+          break;
+        }
+        return selected;
+      };
+
+      const rotateMemberToBack = (candidate) => {
+        if (!candidate) {
+          return;
+        }
+        const selectedIndex = simulatedQueue.findIndex((member) => member.id === candidate.id);
+        if (selectedIndex >= 0) {
+          simulatedQueue.splice(selectedIndex, 1);
+          simulatedQueue.push(candidate);
+        }
+      };
+
+      if (!memberId) {
+        const selected = selectAutoCandidate();
+
+        if (selected) {
+          memberId = selected.id;
+          rotateMemberToBack(selected);
+        }
+      } else if (injectedOverrideMemberId || explicitMemberId) {
+        // On override weeks, consume the queue slot that would have been assigned by auto/history
+        // so future weeks remain aligned with baseline queue progression.
+        const progressionMember = historyMemberId
+          ? simulatedQueue.find((member) => member.id === historyMemberId)
+          : selectAutoCandidate();
+        if (progressionMember) {
+          rotateMemberToBack(progressionMember);
+        }
+      }
+
+      simulatedAssignments.set(weekStart, memberId || null);
+      result.push({
+        weekStart,
+        member: memberId ? membersById.get(memberId) || null : null,
+      });
+    }
+
+    return result;
+  }
+
   setOverride({ weekStart, memberId, createdBy, type = 'override' }) {
     this.db
       .prepare('INSERT INTO schedule_overrides(id, week_start, member_id, override_type, created_by, created_at, details) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .run(uuidv4(), weekStart, memberId, type, createdBy, new Date().toISOString(), null);
 
-    return this.getFinalAssignmentForWeek(weekStart);
+    return this.db.prepare('SELECT * FROM team_members WHERE id = ?').get(memberId);
   }
 
   createPendingSwap({ weekStart, requesterUserId, targetUserId }) {
@@ -302,9 +430,21 @@ class RotationService {
   wouldCauseBackToBack({ weekStart, memberId }) {
     const previousWeek = addWeeks(weekStart, -1);
     const nextWeek = addWeeks(weekStart, 1);
+    const currentWeek = weekStartISO(new Date());
+    const startWeek = currentWeek < previousWeek ? currentWeek : previousWeek;
 
-    const previous = this.getFinalAssignmentForWeek(previousWeek);
-    const next = this.getFinalAssignmentForWeek(nextWeek);
+    const startDate = new Date(`${startWeek}T00:00:00Z`);
+    const endDate = new Date(`${nextWeek}T00:00:00Z`);
+    const diffWeeks = Math.floor((endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    const weeks = Math.max(diffWeeks + 1, 3);
+
+    const projected = this.getUpcomingSchedulePreview(startWeek, weeks, {
+      overrideMemberIdByWeekStart: { [weekStart]: memberId },
+    });
+
+    const byWeek = new Map(projected.map((entry) => [entry.weekStart, entry.member]));
+    const previous = byWeek.get(previousWeek) || null;
+    const next = byWeek.get(nextWeek) || null;
 
     return Boolean((previous && previous.id === memberId) || (next && next.id === memberId));
   }

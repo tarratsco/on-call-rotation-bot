@@ -52,6 +52,7 @@ Run in Slack:
    - Expect schedule update confirmation with scheduler reload (no restart needed)
 8. `/oncall-reset schedule`
    - Expect schedule-state reset confirmation and active users kept
+   - If a rotation baseline was previously saved via `/oncall-set rotation ...`, expect queue order restoration to that baseline
 9. `/oncall-set rotation @user1 @user2 @user3`
    - Expect queue reorder confirmation
 10. `/oncall-reset all confirm`

@@ -72,6 +72,28 @@ test('getUpcomingSchedule creates fair round-robin assignments', () => {
   cleanup();
 });
 
+test('getUpcomingSchedulePreview is non-mutating and preserves queue/history', () => {
+  const { service, db, cleanup } = createService();
+  service.addMember({ slackUserId: 'U1', displayName: 'One' });
+  service.addMember({ slackUserId: 'U2', displayName: 'Two' });
+  service.addMember({ slackUserId: 'U3', displayName: 'Three' });
+
+  const beforeOrder = service.listMembers().map((member) => member.slack_user_id);
+  const beforeHistoryCount = db.prepare('SELECT COUNT(*) AS count FROM rotation_history').get().count;
+
+  const schedule = service.getUpcomingSchedulePreview('2026-02-16', 4);
+  const assigned = schedule.map((entry) => entry.member?.slack_user_id);
+
+  const afterOrder = service.listMembers().map((member) => member.slack_user_id);
+  const afterHistoryCount = db.prepare('SELECT COUNT(*) AS count FROM rotation_history').get().count;
+
+  assert.deepEqual(assigned, ['U1', 'U2', 'U3', 'U1']);
+  assert.deepEqual(afterOrder, beforeOrder);
+  assert.equal(afterHistoryCount, beforeHistoryCount);
+
+  cleanup();
+});
+
 test('setOverride and pending swaps are persisted', () => {
   const { service, cleanup } = createService();
   const u1 = service.addMember({ slackUserId: 'U1', displayName: 'One' });
@@ -140,6 +162,38 @@ test('setQueueOrderBySlackIds updates manual queue order', () => {
   const result = service.setQueueOrderBySlackIds(['U3', 'U1', 'U2']);
   assert.equal(result.updated, true);
   assert.deepEqual(service.listMembers().map((m) => m.slack_user_id), ['U3', 'U1', 'U2']);
+  assert.deepEqual(service.getQueueBaselineSlackIds(), ['U3', 'U1', 'U2']);
+
+  cleanup();
+});
+
+test('restoreQueueFromBaseline reapplies saved manual order', () => {
+  const { service, cleanup } = createService();
+  service.addMember({ slackUserId: 'U1', displayName: 'One' });
+  service.addMember({ slackUserId: 'U2', displayName: 'Two' });
+  service.addMember({ slackUserId: 'U3', displayName: 'Three' });
+
+  service.setQueueOrderBySlackIds(['U3', 'U1', 'U2']);
+  service.setQueueOrderBySlackIds(['U2', 'U3', 'U1'], { persistBaseline: false });
+
+  const restored = service.restoreQueueFromBaseline();
+  assert.equal(restored.restored, true);
+  assert.deepEqual(service.listMembers().map((m) => m.slack_user_id), ['U3', 'U1', 'U2']);
+
+  cleanup();
+});
+
+test('restoreQueueFromBaseline returns mismatch when participant set changed', () => {
+  const { service, cleanup } = createService();
+  service.addMember({ slackUserId: 'U1', displayName: 'One' });
+  service.addMember({ slackUserId: 'U2', displayName: 'Two' });
+  service.setQueueOrderBySlackIds(['U2', 'U1']);
+
+  service.addMember({ slackUserId: 'U3', displayName: 'Three' });
+  const restored = service.restoreQueueFromBaseline();
+
+  assert.equal(restored.restored, false);
+  assert.equal(restored.reason, 'baseline-mismatch');
 
   cleanup();
 });
@@ -284,6 +338,61 @@ test('no back-to-back assignment when previous week has explicit override', () =
   const next = service.getFinalAssignmentForWeek('2026-02-23');
   assert.equal(next.slack_user_id, 'U2');
   assert.ok(u2);
+  cleanup();
+});
+
+test('wouldCauseBackToBack uses preview projection and avoids false positives', () => {
+  const { service, db, cleanup } = createService();
+  service.addMember({ slackUserId: 'UONIX', displayName: 'Onix' });
+  service.addMember({ slackUserId: 'UCALVIN', displayName: 'Calvin Costa' });
+  service.addMember({ slackUserId: 'UKATH', displayName: 'Kathleen Cullen' });
+  service.addMember({ slackUserId: 'ULEAH', displayName: 'Leah' });
+
+  const onix = service.getMemberBySlackId('UONIX');
+
+  const projected = service.getUpcomingSchedulePreview('2026-03-16', 6);
+  const projectedByWeek = new Map(projected.map((entry) => [entry.weekStart, entry.member?.slack_user_id]));
+  assert.equal(projectedByWeek.get('2026-03-23'), 'UCALVIN');
+
+  const beforeOrder = service.listMembers().map((member) => member.slack_user_id);
+  const beforeHistory = db.prepare('SELECT COUNT(*) AS count FROM rotation_history').get().count;
+
+  const wouldCause = service.wouldCauseBackToBack({
+    weekStart: '2026-03-30',
+    memberId: onix.id,
+  });
+
+  const afterOrder = service.listMembers().map((member) => member.slack_user_id);
+  const afterHistory = db.prepare('SELECT COUNT(*) AS count FROM rotation_history').get().count;
+
+  assert.equal(wouldCause, false);
+  assert.deepEqual(afterOrder, beforeOrder);
+  assert.equal(afterHistory, beforeHistory);
+
+  cleanup();
+});
+
+test('override preview keeps prior weeks stable and consumes baseline slot on override week', () => {
+  const { service, cleanup } = createService();
+  service.addMember({ slackUserId: 'UONIX', displayName: 'Onix' });
+  service.addMember({ slackUserId: 'UCALVIN', displayName: 'Calvin Costa' });
+  service.addMember({ slackUserId: 'UKATH', displayName: 'Kathleen Cullen' });
+  service.addMember({ slackUserId: 'ULEAH', displayName: 'Leah' });
+
+  const before = service.getUpcomingSchedulePreview('2026-03-16', 6).map((entry) => entry.member?.slack_user_id);
+  assert.deepEqual(before, ['UONIX', 'UCALVIN', 'UKATH', 'ULEAH', 'UONIX', 'UCALVIN']);
+
+  const onix = service.getMemberBySlackId('UONIX');
+  const queueBeforeOverride = service.listMembers().map((m) => m.slack_user_id);
+  service.setOverride({ weekStart: '2026-03-30', memberId: onix.id, createdBy: 'UADMIN' });
+  const queueAfterOverride = service.listMembers().map((m) => m.slack_user_id);
+
+  // Setting an override should not mutate queue order immediately.
+  assert.deepEqual(queueAfterOverride, queueBeforeOverride);
+
+  const after = service.getUpcomingSchedulePreview('2026-03-16', 6).map((entry) => entry.member?.slack_user_id);
+  assert.deepEqual(after, ['UONIX', 'UCALVIN', 'UONIX', 'ULEAH', 'UONIX', 'UCALVIN']);
+
   cleanup();
 });
 

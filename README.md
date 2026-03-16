@@ -129,8 +129,8 @@ Admin configuration commands:
 - `/oncall-admin help` — show current config + admin command help
 - `/oncall-set channel #channel` — set reminder channel
 - `/oncall-set schedule Monday 09:00 America/New_York` — set reminder schedule
-- `/oncall-set rotation @user1 @user2 ... [apply-now]` — set queue order (optionally apply immediately)
-- `/oncall-reset schedule` — clear schedule state only (keep active users)
+- `/oncall-set rotation @user1 @user2 ... [apply-now]` — set queue order (optionally apply immediately). Saves this order as the rotation baseline.
+- `/oncall-reset schedule` — clear schedule state only (keep active users) and restore saved rotation baseline when available
 - `/oncall-reset all confirm` — deactivate all active users + clear schedule state
 
 To manually set starting queue order, use:
@@ -163,6 +163,7 @@ Channel input notes:
 
 - Participants are manually managed (no auto-sync from channel members).
 - Queue order is preserved across manual assignments; explicit week assignment is stored separately.
+- `/oncall-schedule` is preview-only and does not mutate queue/assignment state.
 - If no assignee can be determined for a week, the reminder posts a warning and admins are DM’d.
 - Config updates via `/oncall-set schedule ...` reload the reminder scheduler immediately.
 - The command URLs in the manifest are placeholders for Socket Mode and are not used by this local MVP runtime.

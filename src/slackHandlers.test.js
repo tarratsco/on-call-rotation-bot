@@ -55,6 +55,7 @@ function createRotationServiceStub(overrides = {}) {
     getAdmins: () => [],
     getConfig: () => ({ reminder_channel: '', reminder_day: 'Monday', reminder_time: '09:00', reminder_timezone: 'UTC' }),
     setConfig: () => {},
+    restoreQueueFromBaseline: () => ({ restored: false, reason: 'no-baseline' }),
     setQueueOrderBySlackIds: () => ({ updated: false, error: 'Not implemented' }),
     clearScheduleState: () => ({ cleared: true }),
     clearQueueKeepUsers: () => ({ activeMembers: 0 }),
@@ -448,6 +449,7 @@ test('/oncall-reset schedule keeps users and clears schedule state', async () =>
   const rotationService = createRotationServiceStub({
     isAdmin: () => true,
     clearScheduleState: () => ({ cleared: true }),
+    restoreQueueFromBaseline: () => ({ restored: true }),
   });
   createHandlers({ app, rotationService, logger: console });
 
@@ -458,6 +460,25 @@ test('/oncall-reset schedule keeps users and clears schedule state', async () =>
 
   assert.match(response.text, /Schedule state cleared/);
   assert.match(response.text, /Active participants were kept/);
+  assert.match(response.text, /Restored queue order from saved rotation baseline/);
+});
+
+test('/oncall-reset schedule keeps current queue when baseline is missing', async () => {
+  const app = createFakeApp();
+  const rotationService = createRotationServiceStub({
+    isAdmin: () => true,
+    clearScheduleState: () => ({ cleared: true }),
+    restoreQueueFromBaseline: () => ({ restored: false, reason: 'no-baseline' }),
+  });
+  createHandlers({ app, rotationService, logger: console });
+
+  const response = await invoke(app, '/oncall-reset', {
+    text: 'schedule',
+    userId: 'UADMIN',
+  });
+
+  assert.match(response.text, /No saved rotation baseline found/);
+  assert.match(response.text, /kept current queue order/);
 });
 
 test('/oncall-reset queue is no longer supported', async () => {

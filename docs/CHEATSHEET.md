@@ -17,7 +17,7 @@ Use these once to get a new workspace ready for weekly reminders and fair assign
 These are the day-to-day commands for participants to view schedule status and handle coverage changes.
 
 - `/oncall` — show this week + next week assignee
-- `/oncall-schedule [weeks]` — upcoming rotation (default 6, max 12)
+- `/oncall-schedule [weeks]` — upcoming rotation (default 6, max 12; preview-only)
 - `/oncall-list` — active participants in queue order
 - `/oncall-help` — show command list
 
@@ -31,8 +31,8 @@ These commands are restricted to admins and control roster management, schedulin
 - `/oncall-admin help` — show current config + admin command help
 - `/oncall-set channel #channel` — set reminder destination channel
 - `/oncall-set schedule Monday 09:00 America/New_York` — set reminder cadence (applies immediately)
-- `/oncall-set rotation @user1 @user2 ... [apply-now]` — set manual queue order
-- `/oncall-reset schedule` — clear schedule state only (keep active users)
+- `/oncall-set rotation @user1 @user2 ... [apply-now]` — set manual queue order (saved as rotation baseline)
+- `/oncall-reset schedule` — clear schedule state only (keep active users) and restore saved rotation baseline when available
 - `/oncall-reset all confirm` — deactivate all active users + clear schedule state
 
 ## Common Recovery Flows
@@ -54,7 +54,7 @@ Use when override/history state needs reset but participant roster is correct.
 
 - `/oncall-reset schedule`
 
-Clears prior assignment state.
+Clears prior assignment state and restores the saved rotation baseline when available.
 
 ### Reset test state completely
 

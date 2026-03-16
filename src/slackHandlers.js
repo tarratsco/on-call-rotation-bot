@@ -324,7 +324,9 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
     const weeks = Number.parseInt(command.text?.trim() || '6', 10);
     const count = Number.isNaN(weeks) ? 6 : Math.min(Math.max(weeks, 1), 12);
     const start = weekStartISO(new Date());
-    const schedule = rotationService.getUpcomingSchedule(start, count);
+    const schedule = typeof rotationService.getUpcomingSchedulePreview === 'function'
+      ? rotationService.getUpcomingSchedulePreview(start, count)
+      : rotationService.getUpcomingSchedule(start, count);
     await sendEphemeral({
       respond,
       client,
@@ -670,12 +672,25 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
 
     if (text === 'schedule') {
       rotationService.clearScheduleState();
+      const restore = typeof rotationService.restoreQueueFromBaseline === 'function'
+        ? rotationService.restoreQueueFromBaseline()
+        : { restored: false, reason: 'unsupported' };
+
+      let details = 'Cleared prior assignment state.';
+      if (restore.restored) {
+        details = 'Restored queue order from saved rotation baseline and cleared prior assignment state.';
+      } else if (restore.reason === 'no-baseline') {
+        details = 'No saved rotation baseline found; kept current queue order and cleared prior assignment state.';
+      } else if (restore.reason === 'baseline-mismatch') {
+        details = 'Saved rotation baseline no longer matches active participants; kept current queue order and cleared prior assignment state.';
+      }
+
       await sendEphemeral({
         respond,
         client,
         command,
         logger,
-        text: 'Schedule state cleared. Active participants were kept. Cleared prior assignment state.',
+        text: `Schedule state cleared. Active participants were kept. ${details}`,
       });
       return;
     }
