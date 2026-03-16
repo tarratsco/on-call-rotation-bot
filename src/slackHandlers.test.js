@@ -368,6 +368,8 @@ test('/oncall-admin help includes current config and admin commands', async () =
   assert.match(response.text, /\*Current config\*/);
   assert.match(response.text, /reminder_channel: <#COPS>/);
   assert.match(response.text, /\*Admin commands\*/);
+  assert.match(response.text, /\/oncall-set channel #channel.*set reminder destination channel/);
+  assert.match(response.text, /\/oncall-set schedule Monday 09:00 America\/New_York.*set reminder day\/time\/timezone/);
   assert.match(response.text, /\/oncall-set rotation @user1 @user2/);
   assert.match(response.text, /\/oncall-reset schedule/);
   assert.match(response.text, /\/oncall-reset all confirm/);

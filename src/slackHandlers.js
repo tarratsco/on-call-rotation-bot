@@ -272,11 +272,11 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
         configText,
         '',
         '*Admin commands*',
-        '- `/oncall-set channel #channel`',
-        '- `/oncall-set schedule Monday 09:00 America/New_York`',
-        '- `/oncall-set rotation @user1 @user2 ... [apply-now]`',
-        '- `/oncall-reset schedule`',
-        '- `/oncall-reset all confirm`',
+        '- `/oncall-set channel #channel` - set reminder destination channel',
+        '- `/oncall-set schedule Monday 09:00 America/New_York` - set reminder day/time/timezone',
+        '- `/oncall-set rotation @user1 @user2 ... [apply-now]` - set manual queue order (optional immediate apply)',
+        '- `/oncall-reset schedule` - clear schedule state (keep active users)',
+        '- `/oncall-reset all confirm` - deactivate all users and clear schedule state',
       ].join('\n'),
     });
   }
