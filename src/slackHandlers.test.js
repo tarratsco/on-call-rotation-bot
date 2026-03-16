@@ -357,7 +357,11 @@ test('/oncall-admin help includes current config and admin commands', async () =
   const app = createFakeApp();
   const rotationService = createRotationServiceStub({
     isAdmin: () => true,
-    getConfig: () => ({ reminder_channel: 'COPS', reminder_day: 'Monday' }),
+    getConfig: () => ({ reminder_channel: 'COPS', reminder_day: 'Monday', queue_baseline: '["U2","U1"]' }),
+    listMembers: () => [
+      { slack_user_id: 'U1', display_name: 'One' },
+      { slack_user_id: 'U2', display_name: 'Two' },
+    ],
   });
   createHandlers({ app, rotationService, logger: console });
 
@@ -368,6 +372,7 @@ test('/oncall-admin help includes current config and admin commands', async () =
 
   assert.match(response.text, /\*Current config\*/);
   assert.match(response.text, /reminder_channel: <#COPS>/);
+  assert.match(response.text, /queue_baseline: <@U2> \(Two\) -> <@U1> \(One\)/);
   assert.match(response.text, /\*Admin commands\*/);
   assert.match(response.text, /\/oncall-set channel #channel.*set reminder destination channel/);
   assert.match(response.text, /\/oncall-set schedule Monday 09:00 America\/New_York.*set reminder day\/time\/timezone/);

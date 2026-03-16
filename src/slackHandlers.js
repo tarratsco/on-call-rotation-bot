@@ -253,11 +253,35 @@ function createHandlers({ app, rotationService, logger, onScheduleConfigChanged 
 
   async function showAdminConfigSummary({ respond, client, command }) {
     const config = rotationService.getConfig();
+    const membersBySlackId = new Map(rotationService.listMembers().map((member) => [member.slack_user_id, member]));
     const configText = Object.entries(config)
       .map(([key, value]) => {
         if (key === 'reminder_channel' && value) {
           return `${key}: <#${value}>`;
         }
+
+        if (key === 'queue_baseline' && value) {
+          let ids = [];
+          try {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed)) {
+              ids = parsed.map((item) => String(item));
+            }
+          } catch (_error) {
+            ids = String(value)
+              .split(',')
+              .map((item) => item.trim())
+              .filter(Boolean);
+          }
+
+          const readable = ids.map((slackUserId) => {
+            const member = membersBySlackId.get(slackUserId);
+            return member ? formatMember(member) : mention(slackUserId);
+          });
+
+          return `${key}: ${readable.join(' -> ') || '_none_'}`;
+        }
+
         return `${key}: ${value}`;
       })
       .join('\n') || 'No config set.';
